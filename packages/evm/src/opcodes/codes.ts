@@ -8,7 +8,8 @@ import type { CustomOpcode } from '../types.js'
 import type { OpHandler } from './functions.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './gas.js'
 import type { Common } from '@ethereumjs/common'
-
+import { subcircuits } from '../subcircuit_info.js'
+import type { SubcircuitCode, SubcircuitId } from '../synthesizer.js'
 export class Opcode {
   readonly code: number
   readonly name: string
@@ -401,6 +402,7 @@ type OpcodeContext = {
   dynamicGasHandlers: Map<number, AsyncDynamicGasHandler | SyncDynamicGasHandler>
   handlers: Map<number, OpHandler>
   opcodes: OpcodeList
+  subcircuitsId: SubcircuitId[]
   opcodeMap: OpcodeMap
 }
 
@@ -408,6 +410,7 @@ export type OpcodeMapEntry = {
   opcodeInfo: Opcode
   opHandler: OpHandler
   gasHandler: AsyncDynamicGasHandler | SyncDynamicGasHandler
+  subcircuit: SubcircuitCode | undefined
 }
 export type OpcodeMap = OpcodeMapEntry[]
 
@@ -480,15 +483,40 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
   //const handlers = handlersCopy
   const ops = createOpcodes(opcodeBuilder)
 
+  const subcircuitsId: SubcircuitId[] = []
+  
+  subcircuits.forEach((entry) => {
+    subcircuitsId[entry.id] = {
+      code: parseInt(entry.opcode, 16),
+      name: entry.name,
+      nWire: entry.Nwires,
+      outIdx: entry.Out_idx[0],
+      nOut: entry.Out_idx[1],
+      inIdx: entry.In_idx[0],
+      nIn: entry.In_idx[1],
+    }
+  })
+
   const opcodeMap: OpcodeMap = []
 
   for (const [opNumber, op] of ops) {
     const dynamicGas = dynamicGasHandlersCopy.get(opNumber)!
     const handler = handlersCopy.get(opNumber)!
+    const subcircuitCode = subcircuits.find(entry => parseInt(entry.opcode,16) === opNumber)
     opcodeMap[opNumber] = {
       opcodeInfo: op,
       opHandler: handler,
       gasHandler: dynamicGas,
+      subcircuit: subcircuitCode
+        ? {
+            subcircuitId: subcircuitCode.id,
+            nWire: subcircuitCode.Nwires,
+            outIdx: subcircuitCode.Out_idx[0],
+            nOut: subcircuitCode.Out_idx[1],
+            inIdx: subcircuitCode.In_idx[0],
+            nIn: subcircuitCode.In_idx[1],
+          }
+        : undefined
     }
   }
 
@@ -504,6 +532,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
     dynamicGasHandlers: dynamicGasHandlersCopy,
     handlers: handlersCopy,
     opcodes: ops,
+    subcircuitsId,
     opcodeMap,
   }
 }
