@@ -51,8 +51,8 @@ import type { MessageWithTo } from './message.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/gas.js'
 import type { OpHandler, OpcodeList, OpcodeMap } from './opcodes/index.js'
 import type { CustomPrecompile, PrecompileFunc } from './precompiles/index.js'
-import type { VerkleAccessWitness } from './verkleAccessWitness.js'
 import type { Common, StateManagerInterface } from '@ethereumjs/common'
+import type { SubcircuitId } from './synthesizer.js'
 
 const debug = debugDefault('evm:evm')
 const debugGas = debugDefault('evm:gas')
@@ -99,7 +99,6 @@ export class EVM implements EVMInterface {
   public stateManager: StateManagerInterface
   public blockchain: EVMMockBlockchainInterface
   public journal: Journal
-  public verkleAccessWitness?: VerkleAccessWitness
 
   public readonly transientStorage: TransientStorage
 
@@ -116,6 +115,8 @@ export class EVM implements EVMInterface {
   protected _dynamicGasHandlers!: Map<number, AsyncDynamicGasHandler | SyncDynamicGasHandler>
 
   protected _opcodeMap!: OpcodeMap
+
+  protected _subcircuitsId!: SubcircuitId[]
 
   protected _precompiles!: Map<string, PrecompileFunc>
 
@@ -213,6 +214,7 @@ export class EVM implements EVMInterface {
 
     // Initialize the opcode data
     this.getActiveOpcodes()
+    
     this._precompiles = getActivePrecompiles(this.common, this._customPrecompiles)
 
     // Precompile crypto libraries
@@ -220,7 +222,6 @@ export class EVM implements EVMInterface {
       this._bls = opts.bls ?? new NobleBLS()
       this._bls.init?.()
     }
-
     this._bn254 = opts.bn254!
 
     this._emit = async (topic: string, data: any): Promise<void> => {
@@ -253,6 +254,7 @@ export class EVM implements EVMInterface {
     this._opcodes = data.opcodes
     this._dynamicGasHandlers = data.dynamicGasHandlers
     this._handlers = data.handlers
+    this._subcircuitsId = data.subcircuitsId
     this._opcodeMap = data.opcodeMap
     return data.opcodes
   }
@@ -262,23 +264,20 @@ export class EVM implements EVMInterface {
     const fromAddress = message.caller
 
     if (this.common.isActivatedEIP(6800)) {
-      if (message.accessWitness === undefined) {
-        throw new Error('accessWitness is required for EIP-6800')
-      }
       const sendsValue = message.value !== BIGINT_0
       if (message.depth === 0) {
-        const originAccessGas = message.accessWitness.touchTxOriginAndComputeGas(fromAddress)
+        const originAccessGas = message.accessWitness!.touchTxOriginAndComputeGas(fromAddress)
         debugGas(`originAccessGas=${originAccessGas} waived off for origin at depth=0`)
 
-        const destAccessGas = message.accessWitness.touchTxTargetAndComputeGas(message.to, {
+        const destAccessGas = message.accessWitness!.touchTxTargetAndComputeGas(message.to, {
           sendsValue,
         })
         debugGas(`destAccessGas=${destAccessGas} waived off for target at depth=0`)
       }
 
-      let callAccessGas = message.accessWitness.touchAndChargeMessageCall(message.to)
+      let callAccessGas = message.accessWitness!.touchAndChargeMessageCall(message.to)
       if (sendsValue) {
-        callAccessGas += message.accessWitness.touchAndChargeValueTransfer(message.to)
+        callAccessGas += message.accessWitness!.touchAndChargeValueTransfer(message.to)
       }
       gasLimit -= callAccessGas
       if (gasLimit < BIGINT_0) {
@@ -866,7 +865,7 @@ export class EVM implements EVMInterface {
         createdAddresses: opts.createdAddresses ?? new Set(),
         delegatecall: opts.delegatecall,
         blobVersionedHashes: opts.blobVersionedHashes,
-        accessWitness: this.verkleAccessWitness,
+        accessWitness: opts.accessWitness,
       })
     }
 
