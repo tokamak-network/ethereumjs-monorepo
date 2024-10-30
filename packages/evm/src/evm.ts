@@ -1,3 +1,34 @@
+/**
+ *
+ * 이 파일은 Ethereum Virtual Machine(EVM)의 주요 기능을 구현합니다.
+ * 주요 기능은 다음과 같습니다:
+ *
+ * 1. EVM 초기화:
+ *    - EVM 인스턴스를 생성할 때 다양한 옵션을 설정합니다.
+ *    - common 객체를 통해 하드포크 및 EIP 파라미터를 업데이트합니다.
+ *    - 무제한 계약 크기 및 초기 코드 크기 허용 여부를 설정합니다.
+ *    - 사용자 정의 오퍼코드 및 프리컴파일을 설정합니다.
+ *
+ * 2. 저널 및 임시 저장소 초기화:
+ *    - 상태 관리자를 사용하여 Journal 객체를 생성합니다.
+ *    - TransientStorage 객체를 초기화합니다.
+ *
+ * 3. 하드포크 변경 이벤트 처리:
+ *    - 하드포크가 변경될 때마다 활성 오퍼코드를 다시 가져오고, 활성 프리컴파일을 업데이트합니다.
+ *
+ * 4. 오퍼코드 및 프리컴파일 초기화:
+ *    - EVM 인스턴스가 생성될 때 활성 오퍼코드와 프리컴파일을 초기화합니다.
+ *
+ * 5. 암호화 라이브러리 초기화:
+ *    - EIP 2537이 활성화된 경우 NobleBLS 라이브러리를 초기화합니다.
+ *    - NobleBN254 라이브러리를 설정합니다.
+ *
+ * 6. 이벤트 처리:
+ *    - EVM 이벤트를 비동기적으로 처리하는 _emit 메서드를 정의합니다.
+ *
+ * 이 파일은 EVM의 다양한 설정 및 초기화를 담당하며, 하드포크 변경, 오퍼코드 및 프리컴파일 초기화, 암호화 라이브러리 설정 등의 기능을 포함하고 있습니다.
+ */
+
 import { Hardfork } from '@ethereumjs/common'
 import {
   Account,
@@ -243,6 +274,28 @@ export class EVM implements EVMInterface {
     this.DEBUG =
       typeof window === 'undefined' ? (process?.env?.DEBUG?.includes('ethjs') ?? false) : false
   }
+
+  /**
+   * getActiveOpcodes 함수는 현재 활성화된 오퍼코드(opcode)들을 반환하는 함수입니다.
+   * 이 함수는 EVM(Ethereum Virtual Machine)에서 사용 가능한 오퍼코드들을 동적으로 가져와서 반환합니다.
+   * 주로 하드포크나 EIP(이더리움 개선 제안)에 따라 활성화된 오퍼코드가 달라질 수 있기 때문에,
+   * 이 함수는 현재 설정된 하드포크와 EIP에 따라 적절한 오퍼코드들을 반환합니다.
+   *
+   * 주요 기능:
+   * 1. 현재 하드포크와 EIP에 따라 활성화된 오퍼코드들을 가져옴:
+   *    - EVM의 현재 상태에 따라 활성화된 오퍼코드들을 동적으로 결정합니다.
+   *    - 하드포크나 EIP가 변경될 때마다 이 함수가 호출되어 최신 오퍼코드 목록을 반환합니다.
+   *
+   * 2. 오퍼코드 목록 반환:
+   *    - 활성화된 오퍼코드들의 목록을 반환합니다.
+   *    - 이 목록은 EVM이 실행될 때 사용됩니다.
+   *
+   * 사용 예:
+   * const activeOpcodes = evm.getActiveOpcodes();
+   * console.log(activeOpcodes);
+   *
+   * 이 함수는 EVM의 동작을 제어하는 중요한 역할을 하며, EVM이 올바르게 동작하기 위해 필요한 오퍼코드들을 제공합니다.
+   */
 
   /**
    * Returns a list with the currently activated opcodes

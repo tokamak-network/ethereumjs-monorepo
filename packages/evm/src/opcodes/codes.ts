@@ -2,6 +2,7 @@ import { Hardfork } from '@ethereumjs/common'
 
 import { handlers } from './functions.js'
 import { dynamicGasHandlers } from './gas.js'
+import { tokamakHandlers } from './tokamakFunctions.js'
 import { getFullname } from './util.js'
 
 import type { CustomOpcode } from '../types.js'
@@ -408,9 +409,29 @@ export type OpcodeMapEntry = {
   opcodeInfo: Opcode
   opHandler: OpHandler
   gasHandler: AsyncDynamicGasHandler | SyncDynamicGasHandler
+  tokamakHandler: any
 }
 export type OpcodeMap = OpcodeMapEntry[]
 
+/**
+ * getOpcodesForHF 함수는 특정 하드포크(Hardfork)에 대해 활성화된 오퍼코드(opcode)들을 반환하는 함수입니다.
+ * 이 함수는 주어진 하드포크 이름을 기반으로 해당 하드포크에서 활성화된 오퍼코드 목록을 가져옵니다.
+ *
+ * 주요 기능:
+ * 1. 하드포크에 따른 오퍼코드 결정:
+ *    - 주어진 하드포크 이름을 기반으로 해당 하드포크에서 활성화된 오퍼코드들을 결정합니다.
+ *    - 각 하드포크는 특정 오퍼코드 세트를 활성화하거나 비활성화할 수 있습니다.
+ *
+ * 2. 오퍼코드 목록 반환:
+ *    - 주어진 하드포크에 대해 활성화된 오퍼코드들의 목록을 반환합니다.
+ *    - 이 목록은 EVM이 해당 하드포크에서 실행될 때 사용됩니다.
+ *
+ * 사용 예:
+ * const opcodes = getOpcodesForHF('Istanbul');
+ * console.log(opcodes);
+ *
+ * 이 함수는 EVM의 동작을 제어하는 중요한 역할을 하며, 특정 하드포크에서 올바르게 동작하기 위해 필요한 오퍼코드들을 제공합니다.
+ */
 /**
  * Get suitable opcodes for the required hardfork.
  *
@@ -423,6 +444,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
 
   const handlersCopy = new Map(handlers)
   const dynamicGasHandlersCopy = new Map(dynamicGasHandlers)
+  const tokamakHandlersCopy = new Map(tokamakHandlers)
 
   for (let fork = 0; fork < hardforkOpcodes.length; fork++) {
     if (common.gteHardfork(hardforkOpcodes[fork].hardfork)) {
@@ -485,10 +507,13 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
   for (const [opNumber, op] of ops) {
     const dynamicGas = dynamicGasHandlersCopy.get(opNumber)!
     const handler = handlersCopy.get(opNumber)!
+    const tokamakHandler = tokamakHandlersCopy.get(opNumber)!
+
     opcodeMap[opNumber] = {
       opcodeInfo: op,
       opHandler: handler,
       gasHandler: dynamicGas,
+      tokamakHandler,
     }
   }
 
