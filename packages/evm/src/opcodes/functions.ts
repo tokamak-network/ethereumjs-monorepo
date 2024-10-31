@@ -92,6 +92,14 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = mod(a + b, TWO_POW256)
       runState.stack.push(r)
+      /**
+       * 구조는 비슷하게
+       * 스택에서 가져온 값의 출처를 파악
+       * 다른 opCode 출력이었는지 아니면 다른 출처에서 온 변수(하드코드 등)인지 등등
+       * 출처 별로 tag
+       * ex) hardcoded === 0,
+       *
+       */
     },
   ],
   // 0x02: MUL

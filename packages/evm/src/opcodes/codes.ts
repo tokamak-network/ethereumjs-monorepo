@@ -8,6 +8,7 @@ import { getFullname } from './util.js'
 import type { CustomOpcode } from '../types.js'
 import type { OpHandler } from './functions.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './gas.js'
+import type { TokamakOpHandler } from './tokamakFunctions.js'
 import type { Common } from '@ethereumjs/common'
 
 export class Opcode {
@@ -401,6 +402,7 @@ function createOpcodes(opcodes: OpcodeEntryFee): OpcodeList {
 type OpcodeContext = {
   dynamicGasHandlers: Map<number, AsyncDynamicGasHandler | SyncDynamicGasHandler>
   handlers: Map<number, OpHandler>
+  tokamakHandler: Map<number, TokamakOpHandler>
   opcodes: OpcodeList
   opcodeMap: OpcodeMap
 }
@@ -528,6 +530,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
   return {
     dynamicGasHandlers: dynamicGasHandlersCopy,
     handlers: handlersCopy,
+    tokamakHandler: tokamakHandlersCopy,
     opcodes: ops,
     opcodeMap,
   }
