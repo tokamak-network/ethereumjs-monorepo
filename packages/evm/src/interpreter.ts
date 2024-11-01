@@ -22,6 +22,8 @@ import { Memory } from './memory.js'
 import { Message } from './message.js'
 import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
+import { StackPt } from './stackPt.js'
+import { MemoryPt } from './memoryPt.js'
 
 import type { EVM } from './evm.js'
 import type { Journal } from './journal.js'
@@ -84,11 +86,14 @@ export interface Env {
 
 export interface RunState {
   programCounter: number
+  programCounterPrev: number
   opCode: number
   memory: Memory
+  memoryPt: MemoryPt
   memoryWordCount: bigint
   highestMemCost: bigint
   stack: Stack
+  stackPt: StackPt
   code: Uint8Array
   shouldDoJumpAnalysis: boolean
   validJumps: Uint8Array // array of values where validJumps[index] has value 0 (default), 1 (jumpdest), 2 (beginsub)
@@ -175,11 +180,14 @@ export class Interpreter {
 
     this._runState = {
       programCounter: 0,
+      programCounterPrev: 0,
       opCode: 0xfe, // INVALID opcode
       memory: new Memory(),
+      memoryPt: new MemoryPt(),
       memoryWordCount: BIGINT_0,
       highestMemCost: BIGINT_0,
       stack: new Stack(),
+      stackPt: new StackPt(),
       code: new Uint8Array(0),
       validJumps: Uint8Array.from([]),
       cachedPushes: {},

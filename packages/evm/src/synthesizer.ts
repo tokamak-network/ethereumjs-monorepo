@@ -18,3 +18,10 @@ export type SubcircuitId = {
   nIn: number
 }
 
+export type DataPt = {
+  source: string | number,
+  offset: number,
+  size: number,
+  value: BigInt
+}
+
