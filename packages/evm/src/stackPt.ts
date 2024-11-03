@@ -1,9 +1,11 @@
 import { ERROR, EvmError } from './exceptions.js'
 import type {DataPt} from './synthesizer.js'
 
+export type _StackPt = DataPt[]
+
 export class StackPt {
     // This array is initialized as an empty array. Once values are pushed, the array size will never decrease.
-    private _storePt: DataPt[]
+    private _storePt: _StackPt
     private _maxHeight: number
   
     private _len: number = 0

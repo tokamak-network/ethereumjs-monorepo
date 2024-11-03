@@ -3,7 +3,7 @@ import { hexToBytes } from '@ethereumjs/util'
 
 const main = async () => {
   const evm = await createEVM()
-  const res = await evm.runCode({ code: hexToBytes('0x6001600201') }) // PUSH1 01 -- simple bytecode to push 1 onto the stack
+  const res = await evm.runCode({ code: hexToBytes('0x610001601F53600051602052602051600051016040526040516020510160605260806000F3') })
   console.log(res.executionGasUsed) // 3n
 }
 

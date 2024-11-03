@@ -391,4 +391,18 @@ export const subcircuits = [
 			2
 		]
 	},
+	{
+		"id": 28,
+		"opcode": "F3",
+		"name": "RETURN",
+		"Nwires": 0,
+		"Out_idx": [
+			1,
+			32
+		],
+		"In_idx": [
+			33,
+			1
+		]
+	},
 ]

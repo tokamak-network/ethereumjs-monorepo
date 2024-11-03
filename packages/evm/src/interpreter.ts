@@ -24,6 +24,7 @@ import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
 import { StackPt } from './stackPt.js'
 import { MemoryPt } from './memoryPt.js'
+import { Synthesizer } from './synthesizer.js'
 
 import type { EVM } from './evm.js'
 import type { Journal } from './journal.js'
@@ -40,6 +41,7 @@ import type { AccessWitnessInterface, Common, StateManagerInterface } from '@eth
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
 
 const debugGas = debugDefault('evm:gas')
+import readline from "readline"
 
 export interface InterpreterOpts {
   pc?: number
@@ -106,6 +108,7 @@ export interface RunState {
   gasRefund: bigint // Tracks the current refund
   gasLeft: bigint // Current gas left
   returnBytes: Uint8Array /* Current bytes in the return Uint8Array. Cleared each time a CALL/CREATE is made in the current frame. */
+  synthesizer: Synthesizer
 }
 
 export interface InterpreterResult {
@@ -199,6 +202,7 @@ export class Interpreter {
       gasRefund: env.gasRefund,
       gasLeft,
       returnBytes: new Uint8Array(0),
+      synthesizer: new Synthesizer()
     }
     this.journal = journal
     this._env = env
@@ -321,11 +325,12 @@ export class Interpreter {
       }
 
       this._runState.opCode = opCode!
-
+      
       try {
         if (overheadTimer !== undefined) {
           this.performanceLogger.pauseTimer()
         }
+        this._runState.programCounterPrev = this._runState.programCounter
         await this.runStep(opCodeObj!)
         if (overheadTimer !== undefined) {
           this.performanceLogger.unpauseTimer(overheadTimer)
@@ -343,7 +348,8 @@ export class Interpreter {
           err = e
         }
         break
-      }
+      }    
+
     }
 
     if (timer !== undefined) {
@@ -416,6 +422,7 @@ export class Interpreter {
       } else {
         opFn.apply(null, [this._runState, this.common])
       }
+
     } finally {
       if (this.profilerOpts?.enabled === true) {
         this.performanceLogger.stopTimer(
@@ -466,6 +473,44 @@ export class Interpreter {
         return bigIntToHex(BigInt(item))
       })
 
+      function waitForCommand(targetCommand = "continue") {
+        return new Promise<void>((resolve) => {
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          });
+      
+          rl.question(`Type "${targetCommand}" to continue: `, (input) => {
+            if (input.trim() === targetCommand) {
+              rl.close();
+              resolve();
+            } else {
+              console.log(`Invalid command. Please type "${targetCommand}" to proceed.`);
+              rl.close();
+              waitForCommand(targetCommand).then(resolve); // 다시 대기
+            }
+          });
+        });
+      }
+
+      function arrToStr(key: string, value: any) {
+        return typeof value === "bigint" ? value.toString() : value;
+      }
+      const mapToStr = (map: Map<any, any>) => {
+        return Object.fromEntries(
+          Array.from(map, ([key, value]) => [
+            key,
+            JSON.parse(
+              JSON.stringify(value, (k, v) => (typeof v === "bigint" ? v.toString() : v))
+            )
+          ])
+        );
+      }
+
+      
+      const stringMemoryPt = mapToStr(this._runState.memoryPt._storePt)
+      const stringPlacements = mapToStr(this._runState.synthesizer.placements)
+
       const name = eventObj.opcode.name
 
       const opTrace = {
@@ -481,6 +526,11 @@ export class Interpreter {
         this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
       }
       this.opDebuggers[name](JSON.stringify(opTrace))
+      console.log(`"memory": ${JSON.stringify(eventObj.memory)}\n`)
+      console.log(`"stackPt": ${JSON.stringify(this._runState.stackPt.getStack(), arrToStr, 2)}\n`)
+      console.log(`"memoryPt": ${JSON.stringify(stringMemoryPt, null, 1)}\n`)
+      console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+      await waitForCommand("c");
     }
 
     /**

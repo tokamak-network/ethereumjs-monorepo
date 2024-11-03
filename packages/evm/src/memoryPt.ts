@@ -1,8 +1,8 @@
 import { concatBytes } from '@ethereumjs/util'
 import { DataPt } from './synthesizer.js'
 
-type DataAugInfos = {dataPt: DataPt, shift: number, masker: string}[]
-type _MemoryPt = Map<number, {offset: number, size: number, dataPt: DataPt}>
+export type DataAliasInfos = {dataPt: DataPt, shift: number, masker: string}[]
+type _MemoryPt = Map<number, {memOffset: number, containerSize: number, dataPt: DataPt}>
 type _DataFragments = Map<number,{originalRange: Set<number>,validRange: Set<number>}>
 
 const ceil = (value: number, ceiling: number): number => {
@@ -36,7 +36,7 @@ const CONTAINER_SIZE = 8192
  * for the ethereum virtual machine.
  */
 export class MemoryPt {
-    private _storePt: _MemoryPt
+    _storePt: _MemoryPt
     private _timeStamp: number    
 
     constructor() {
@@ -49,7 +49,7 @@ export class MemoryPt {
      * 기존의 key-value 쌍을 삭제합니다.
      */
     private _memPtCleanUp(newOffset: number, newSize: number) {
-        for (const [key, { offset: _offset, size: _size}] of this._storePt) {
+        for (const [key, { memOffset: _offset, containerSize: _size}] of this._storePt) {
             //새 데이터가 기존 데이터를 완전히 오버랩 하는 조건
             const _endOffset = _offset + _size - 1
             const newEndOffset = newOffset + newSize - 1
@@ -77,8 +77,8 @@ export class MemoryPt {
         this._storePt.set(
             this._timeStamp++,
             {
-                offset: offset,
-                size: size,
+                memOffset: offset,
+                containerSize: size,
                 dataPt: dataPt
             }
         )
@@ -86,7 +86,7 @@ export class MemoryPt {
     }
     
     /**
-     * read 는 MemoryPt조작에는 사용되지 않습니다. 대신 "getDataAug"를 사용합니다.
+     * read 는 MemoryPt조작에는 사용되지 않습니다. 대신 "getDataAlias"를 사용합니다.
      * Reads a slice of memory from `offset` till `offset + size` as a `Uint8Array`.
      * It fills up the difference between memory's length and `offset + size` with zeros.
      * @param offset - Starting memory position
@@ -106,28 +106,36 @@ export class MemoryPt {
     }
     */
 
-    getDataAug(offset: number, size: number): DataAugInfos {
-        let dataAugInfos: DataAugInfos = []
-        const dataFragments = this.viewMemoryConflict(offset, size)
+    getDataAlias(offset: number, size: number): DataAliasInfos {
+        if (size > 32){
+            throw new Error(`The range of memory view exceeds 32 bytes. Try to chunk it in the Handlers.`)
+        }
+        let dataAliasInfos: DataAliasInfos = []
+        const dataFragments = this._viewMemoryConflict(offset, size)
         dataFragments.forEach((value,key) => {
-            dataAugInfos.push({
+            const dataEndOffset = this._storePt.get(key)!.memOffset + this._storePt.get(key)!.containerSize -1
+            const viewEndOffset = offset + size -1
+            dataAliasInfos.push({
                 dataPt: this._storePt.get(key)!.dataPt,
-                shift: (this._storePt.get(key)!.offset - offset)*8,
-                masker: this.generateMasker(offset, size, value.validRange)
+                // shift가 양의 값이면 SHL, 음의 값이면 SHR
+                shift: (viewEndOffset - dataEndOffset)*8,
+                masker: this._generateMasker(offset, size, value.validRange)
             })
         })
-        return dataAugInfos
+        return dataAliasInfos
     }
 
-    private viewMemoryConflict(offset: number, size: number) {
+    private _viewMemoryConflict(offset: number, size: number) {
         const dataFragments: _DataFragments = new Map()
         const endOffset = offset + size -1
         const sortedTimeStamps = Array.from(this._storePt.keys()).sort((a,b)=> a-b)
         var i=0
             
         for (const timeStamp of sortedTimeStamps){
-            const storedOffset = this._storePt.get(timeStamp)!.offset
-            const storedEndOffset = storedOffset + this._storePt.get(timeStamp)!.size -1
+            const containerOffset = this._storePt.get(timeStamp)!.memOffset
+            const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize -1
+            // Find the offset where nonzero value starts
+            const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.actualSize +1
             const sortedTimeStamps_firsts = sortedTimeStamps.slice(0,i)
             // If data is in the range
             if (storedEndOffset >= offset && storedOffset <= endOffset){
@@ -164,7 +172,7 @@ export class MemoryPt {
         return dataFragments
     }
 
-    private generateMasker(offset: number, size: number, validRange: Set<number>): string {
+    private _generateMasker(offset: number, size: number, validRange: Set<number>): string {
         const targetRange = createRangeSet(offset, offset+size-1)
         for (const element of validRange) {
         if (!targetRange.has(element)) {
@@ -172,13 +180,13 @@ export class MemoryPt {
         }
         }
     
-        let maskerString = ""
+        let maskerString = "0x"
         for (const element of targetRange) {
-        if (validRange.has(element)) {
-            maskerString += "FF"
-        } else {
-            maskerString += "00"
-        }
+            if (validRange.has(element)) {
+                maskerString += "FF"
+            } else {
+                maskerString += "00"
+            }
         }
         //const maskerBigInt = BigInt(`0x${maskerString}`)
         return maskerString
