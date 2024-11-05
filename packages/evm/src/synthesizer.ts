@@ -1,5 +1,6 @@
-import { DataAliasInfos } from './memoryPt.js'
 import { subcircuits } from './subcircuit_info.js'
+
+import type { DataAliasInfos } from './memoryPt.js'
 
 export type SubcircuitCode = {
   subcircuitId: number
@@ -21,17 +22,17 @@ export type SubcircuitId = {
 }
 
 export type DataPt = {
-  source: string | number,
-  sourceOffset: number,
-  actualSize: number,
+  source: string | number
+  sourceOffset: number
+  actualSize: number
   value: bigint
   valuestr: string
 }
 
 type PlacementEntry = {
-  name: string,
-  inPts: DataPt[],
-  outPts: DataPt[],
+  name: string
+  inPts: DataPt[]
+  outPts: DataPt[]
 }
 type Placements = Map<number, PlacementEntry>
 
@@ -40,9 +41,9 @@ const byteSize = (value: bigint): number => {
   return Math.max(Math.ceil(hexLength / 2), 1)
 }
 
-const mapPush=(map: Placements, value: PlacementEntry) => {
-  const key = map.size;
-  map.set(key,value)
+const mapPush = (map: Placements, value: PlacementEntry) => {
+  const key = map.size
+  map.set(key, value)
 }
 
 export class Synthesizer {
@@ -53,29 +54,28 @@ export class Synthesizer {
 
   constructor() {
     this.placements = new Map()
-    this.placements.set(0,{
+    this.placements.set(0, {
       name: 'LOAD',
       inPts: [],
       outPts: [],
     })
     this.auxin = []
     this.placementIndex = 1
-    this.subcircuitNames = subcircuits.map((circuit) => circuit.name);
+    this.subcircuitNames = subcircuits.map((circuit) => circuit.name)
   }
 
   newDataPt(sourceId: number | string, sourceOffset: number, value: bigint): DataPt {
     const outDataPt: DataPt = {
       source: sourceId,
-      sourceOffset: sourceOffset,
+      sourceOffset,
       actualSize: byteSize(value),
-      value: value,
-      valuestr: value.toString(16)
+      value,
+      valuestr: value.toString(16),
     }
     return outDataPt
   }
 
   newPlacementPUSH(numToPush: number, programCounter: number, value: bigint): DataPt {
-
     const pointerIn: DataPt = this.newDataPt('code', programCounter + 1, value)
     // code 데이터는 항상 Placements의 0번째 엔트리에 저장됩니다.
     // 기존 output list에 이어서 추가
@@ -92,18 +92,18 @@ export class Synthesizer {
     if (truncSize < dataPt.actualSize) {
       // 원본 데이터에 변형이 있으므로, 이를 추적하는 가상의 연산를 만들고 이를 Placements에 반영합니다.
       // MSTORE8의 데이터 변형은 AND 연산으로 표현 가능 (= AND(data, 0xff))
-      let maskerString = '0x' + 'FF'.repeat(truncSize)
+      const maskerString = '0x' + 'FF'.repeat(truncSize)
       const outValue = dataPt.value & BigInt(maskerString)
-      if (dataPt.value != outValue){
+      if (dataPt.value != outValue) {
         this.auxin.push(BigInt(maskerString))
         const auxinIndex = this.auxin.length - 1
         const auxValue = this.auxin[auxinIndex]
         const subcircuitName = 'AND'
-        let inPts: DataPt[] = []
+        const inPts: DataPt[] = []
         // AND는 두 개의 입력과 하나의 출력을 가집니다. 각각,
         inPts[0] = dataPt
-        inPts[1] = this.newDataPt('auxin',auxinIndex,auxValue)
-        const outPts: DataPt[] = [this.newDataPt(this.placementIndex,0,outValue)]
+        inPts[1] = this.newDataPt('auxin', auxinIndex, auxValue)
+        const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(subcircuitName, inPts, outPts)
 
         return outPts[0]
@@ -126,10 +126,10 @@ export class Synthesizer {
    * 3개의 원본 데이터를 각각 "shift"만큼 bit shift 한 뒤 (음의 값이라면 왼쪽으로, 양의 값이라면 오른쪽으로),
    * 그 결과를 각각 "masker"와 AND 해주고,
    * 그 결과를 모두 OR 해주면, 그 결과는 변형 데이터와 같습니다.
-  **/
+   **/
 
   private _resolveDataAlias(dataAliasInfos: DataAliasInfos): DataPt {
-    let orTargets: number[] = []
+    const orTargets: number[] = []
     const prevPlacementIndex = this.placementIndex
     // 먼저 각각을 shift 후 AND 해줌
     dataAliasInfos.forEach((Info) => {
@@ -140,16 +140,17 @@ export class Synthesizer {
 
       if (Math.abs(Number(shift)) > 0) {
         // shift 값과 shift 방향과의 관계는 MemoryPt에서 정의하였음
-        const subcircuitName: string = shift > 0 ? "SHL" : "SHR"
+        const subcircuitName: string = shift > 0 ? 'SHL' : 'SHR'
         this.auxin.push(shift)
         const auxinIndex = this.auxin.length - 1
         const auxValue = this.auxin[auxinIndex]
         // SHR 혹은 SHL은 두 개의 입력과 하나의 출력을 가집니다. 각각,
-        let inPts: DataPt[] = []
-        inPts[0] = this.newDataPt('auxin',auxinIndex,auxValue)
+        const inPts: DataPt[] = []
+        inPts[0] = this.newDataPt('auxin', auxinIndex, auxValue)
         inPts[1] = dataPt
-        shiftOutValue = shift > 0 ? inPts[1].value << inPts[0].value : inPts[1].value >> inPts[0].value
-        const outPts: DataPt[] = [this.newDataPt(this.placementIndex,0,shiftOutValue)]
+        shiftOutValue =
+          shift > 0 ? inPts[1].value << inPts[0].value : inPts[1].value >> inPts[0].value
+        const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, shiftOutValue)]
         this._place(subcircuitName, inPts, outPts)
       }
 
@@ -159,44 +160,43 @@ export class Synthesizer {
         this.auxin.push(BigInt(masker))
         const auxinIndex = this.auxin.length - 1
         const auxValue = this.auxin[auxinIndex]
-        let inPts: DataPt[] = []
-        inPts[0] = this.newDataPt('auxin',auxinIndex,auxValue)
+        const inPts: DataPt[] = []
+        inPts[0] = this.newDataPt('auxin', auxinIndex, auxValue)
         inPts[1] = dataPt
-        const outPts: DataPt[] = [this.newDataPt(this.placementIndex,0,maskOutValue)]
+        const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, maskOutValue)]
         this._place(subcircuitName, inPts, outPts)
       }
 
-      if (prevPlacementIndex != this.placementIndex){
-        orTargets.push(this.placementIndex-1)
+      if (prevPlacementIndex != this.placementIndex) {
+        orTargets.push(this.placementIndex - 1)
       }
     })
 
     const nDataAlias = orTargets.length
 
-    if ( nDataAlias > 1 ) {
+    if (nDataAlias > 1) {
       // 이전의 AND 결과물들을 모두 ADD 해줌
       const subcircuitName = 'ADD'
       const inPts: DataPt[] = [
         this.placements.get(orTargets[0])!.outPts[0],
-        this.placements.get(orTargets[1])!.outPts[0]
+        this.placements.get(orTargets[1])!.outPts[0],
       ]
       const outValue = inPts[0].value + inPts[1].value
-      const outPts: DataPt[] = [this.newDataPt(this.placementIndex,0,outValue)]
+      const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, outValue)]
       this._place(subcircuitName, inPts, outPts)
-
 
       for (let i = 2; i < nDataAlias; i++) {
         const inPts: DataPt[] = [
           this.placements.get(this.placementIndex - 1)!.outPts[0],
-          this.placements.get(orTargets[i])!.outPts[0]
+          this.placements.get(orTargets[i])!.outPts[0],
         ]
         const outValue = inPts[0].value + inPts[1].value
-        const outPts: DataPt[] = [this.newDataPt(this.placementIndex,0,outValue)]
+        const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(subcircuitName, inPts, outPts)
       }
     }
-    
-    if (prevPlacementIndex == this.placementIndex){
+
+    if (prevPlacementIndex == this.placementIndex) {
       // there was no alias or shift
       return dataAliasInfos[0].dataPt
     } else {
@@ -224,18 +224,18 @@ export class Synthesizer {
 
         var dataCopy = aliasResolvedDataPt.value
         const uint8Array = new Uint8Array(32)
-        for (let i=31; i>=0; i--){
-          uint8Array[i] = Number(dataCopy & 0xFFn)
+        for (let i = 31; i >= 0; i--) {
+          uint8Array[i] = Number(dataCopy & 0xffn)
           dataCopy >>= 8n
         }
         //Big Endian
-        const outValues = Array.from(uint8Array, byte => BigInt(byte))
-        
+        const outValues = Array.from(uint8Array, (byte) => BigInt(byte))
+
         const sourceOffset = this.auxin.length
         this.auxin.push(...outValues)
         const inPt = aliasResolvedDataPt
-        let outPts: DataPt[] = []
-        for (let i=0; i<32; i++){
+        const outPts: DataPt[] = []
+        for (let i = 0; i < 32; i++) {
           outPts[i] = this.newDataPt('auxin', sourceOffset + i, outValues[i])
         }
         this._place('RETURN', [inPt], outPts)
@@ -274,15 +274,11 @@ export class Synthesizer {
     if (!this.subcircuitNames.includes(name)) {
       throw new Error(`Subcircuit name ${name} is not defined`)
     }
-    mapPush(this.placements,{
-      name: name,
-      inPts: inPts,
-      outPts: outPts
+    mapPush(this.placements, {
+      name,
+      inPts,
+      outPts,
     })
     this.placementIndex++
   }
-
-
-
-
 }
