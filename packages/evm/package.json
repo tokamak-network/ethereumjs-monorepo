@@ -61,7 +61,6 @@
     "@ethereumjs/util": "^9.1.0",
     "@types/debug": "^4.1.9",
     "debug": "^4.3.3",
-    "dependency-cruiser": "^16.6.0",
     "ethereum-cryptography": "^3.0.0",
     "eventemitter3": "^5.0.1"
   },
