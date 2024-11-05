@@ -94,7 +94,7 @@ export class Synthesizer {
       // MSTORE8의 데이터 변형은 AND 연산으로 표현 가능 (= AND(data, 0xff))
       const maskerString = '0x' + 'FF'.repeat(truncSize)
       const outValue = dataPt.value & BigInt(maskerString)
-      if (dataPt.value != outValue) {
+      if (dataPt.value !== outValue) {
         this.auxin.push(BigInt(maskerString))
         const auxinIndex = this.auxin.length - 1
         const auxValue = this.auxin[auxinIndex]
@@ -132,6 +132,7 @@ export class Synthesizer {
     const orTargets: number[] = []
     const prevPlacementIndex = this.placementIndex
     // 먼저 각각을 shift 후 AND 해줌
+    /*eslint-disable */
     dataAliasInfos.forEach((Info) => {
       const masker = Info.masker
       const shift = BigInt(Info.shift)
@@ -196,7 +197,7 @@ export class Synthesizer {
       }
     }
 
-    if (prevPlacementIndex == this.placementIndex) {
+    if (prevPlacementIndex === this.placementIndex) {
       // there was no alias or shift
       return dataAliasInfos[0].dataPt
     } else {
@@ -205,7 +206,7 @@ export class Synthesizer {
   }
 
   newPlacementMLOAD(dataAliasInfos: DataAliasInfos): DataPt {
-    if (dataAliasInfos.length == 0) {
+    if (dataAliasInfos.length === 0) {
       throw new Error(`Failur in loading memory pointer`)
     } else {
       return this._resolveDataAlias(dataAliasInfos)
@@ -219,10 +220,10 @@ export class Synthesizer {
     outPt.source = this.placementIndex
 
     switch (name) {
-      case 'RETURN':
+      case 'RETURN': {
         const aliasResolvedDataPt = this.newPlacementMLOAD(dataAliasInfos)
 
-        var dataCopy = aliasResolvedDataPt.value
+        let dataCopy = aliasResolvedDataPt.value
         const uint8Array = new Uint8Array(32)
         for (let i = 31; i >= 0; i--) {
           uint8Array[i] = Number(dataCopy & 0xffn)
@@ -240,6 +241,7 @@ export class Synthesizer {
         }
         this._place('RETURN', [inPt], outPts)
         break
+      }
 
       default:
         throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
@@ -253,15 +255,16 @@ export class Synthesizer {
     }
     let outPts: DataPt[] = []
     switch (name) {
-      case 'ADD':
+      case 'ADD': {
         const nInputs = 2
-        if (inPts.length != nInputs) {
+        if (inPts.length !== nInputs) {
           throw new Error(`ADD takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
         const outValue = inPts[0].value + inPts[1].value
         outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(name, inPts, outPts)
         break
+      }
 
       default:
         throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)

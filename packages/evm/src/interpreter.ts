@@ -471,6 +471,7 @@ export class Interpreter {
         return bigIntToHex(BigInt(item))
       })
 
+      /*eslint-disable */
       function waitForCommand(targetCommand = 'continue') {
         return new Promise<void>((resolve) => {
           const rl = readline.createInterface({
@@ -525,6 +526,7 @@ export class Interpreter {
       console.log(`"stackPt": ${JSON.stringify(this._runState.stackPt.getStack(), arrToStr, 2)}\n`)
       console.log(`"memoryPt": ${JSON.stringify(stringMemoryPt, null, 1)}\n`)
       console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+
       await waitForCommand('c')
     }
 

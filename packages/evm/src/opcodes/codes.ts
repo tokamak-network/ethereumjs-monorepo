@@ -486,6 +486,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
 
   const subcircuitsId: SubcircuitId[] = []
 
+  /*eslint-disable */
   subcircuits.forEach((entry) => {
     subcircuitsId[entry.id] = {
       code: parseInt(entry.opcode, 16),

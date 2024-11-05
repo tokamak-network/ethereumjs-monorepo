@@ -802,7 +802,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       const offsetNum = Number(offsetPt.value)
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
       const mutDataPt = runState.synthesizer.newPlacementMLOAD(dataAliasInfos)
-      if (Number(pos) != offsetNum || runState.stack.peek(1)[0] != mutDataPt.value) {
+      if (Number(pos) !== offsetNum || runState.stack.peek(1)[0] !== mutDataPt.value) {
         throw new Error(`MLOAD: Data mismatch between stackPt and stack`)
       }
       runState.stackPt.push(mutDataPt)
@@ -830,7 +830,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       const [offsetPt, newDataPt] = runState.stackPt.popN(2)
       const _offsetNum = Number(offsetPt.value)
-      if (_offsetNum != offsetNum || newDataPt.value != word) {
+      if (_offsetNum !== offsetNum || newDataPt.value !== word) {
         throw new Error(`MSTORE: Data mismatch between stackPt and stack`)
       }
       runState.memoryPt.write(offsetNum, truncSize, newDataPt)
@@ -861,7 +861,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // 이제 일반적인 MSTORE 연산을 수행합니다
       const [offsetPt, newDataPt] = runState.stackPt.popN(2)
       const _offsetNum = Number(offsetPt.value)
-      if (_offsetNum != offsetNum || newDataPt.value != byte) {
+      if (_offsetNum !== offsetNum || newDataPt.value !== byte) {
         throw new Error(`MSTORE8: Data mismatch between stackPt and stack`)
       }
       runState.memoryPt.write(offsetNum, truncSize, newDataPt)

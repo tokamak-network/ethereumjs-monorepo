@@ -1,19 +1,8 @@
-import { concatBytes } from '@ethereumjs/util'
-
-import type { DataPt } from './synthesizer.js'
+import type { DataPt } from './synthesizer.ts'
 
 export type DataAliasInfos = { dataPt: DataPt; shift: number; masker: string }[]
 type _MemoryPt = Map<number, { memOffset: number; containerSize: number; dataPt: DataPt }>
 type _DataFragments = Map<number, { originalRange: Set<number>; validRange: Set<number> }>
-
-const ceil = (value: number, ceiling: number): number => {
-  const r = value % ceiling
-  if (r === 0) {
-    return value
-  } else {
-    return value + ceiling - r
-  }
-}
 
 const createRangeSet = (a: number, b: number): Set<number> => {
   // the resulting increasing set from 'a' to 'b'
@@ -29,6 +18,7 @@ const setMinus = (A: Set<number>, B: Set<number>): Set<number> => {
   return result
 }
 
+/*eslint-disable */
 const CONTAINER_SIZE = 8192
 
 /**
@@ -108,6 +98,7 @@ export class MemoryPt {
     }
     const dataAliasInfos: DataAliasInfos = []
     const dataFragments = this._viewMemoryConflict(offset, size)
+    /*eslint-disable */
     dataFragments.forEach((value, key) => {
       const dataEndOffset =
         this._storePt.get(key)!.memOffset + this._storePt.get(key)!.containerSize - 1
