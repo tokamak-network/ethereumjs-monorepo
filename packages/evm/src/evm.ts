@@ -51,8 +51,8 @@ import type { MessageWithTo } from './message.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/gas.js'
 import type { OpHandler, OpcodeList, OpcodeMap } from './opcodes/index.js'
 import type { CustomPrecompile, PrecompileFunc } from './precompiles/index.js'
-import type { Common, StateManagerInterface } from '@ethereumjs/common'
 import type { SubcircuitId } from './synthesizer.js'
+import type { Common, StateManagerInterface } from '@ethereumjs/common'
 
 const debug = debugDefault('evm:evm')
 const debugGas = debugDefault('evm:gas')
@@ -214,7 +214,7 @@ export class EVM implements EVMInterface {
 
     // Initialize the opcode data
     this.getActiveOpcodes()
-    
+
     this._precompiles = getActivePrecompiles(this.common, this._customPrecompiles)
 
     // Precompile crypto libraries

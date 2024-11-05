@@ -802,10 +802,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       const offsetNum = Number(offsetPt.value)
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
       const mutDataPt = runState.synthesizer.newPlacementMLOAD(dataAliasInfos)
-      if (Number(pos) != offsetNum || runState.stack.peek(1)[0] !=  mutDataPt.value){
+      if (Number(pos) != offsetNum || runState.stack.peek(1)[0] != mutDataPt.value) {
         throw new Error(`MLOAD: Data mismatch between stackPt and stack`)
       }
-      runState.stackPt.push( mutDataPt )
+      runState.stackPt.push(mutDataPt)
     },
   ],
   // 0x52: MSTORE
@@ -818,10 +818,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.memory.write(offsetNum, 32, buf)
 
       // For Synthesizer //
-      const truncSize=32
-      const dataPt = runState.stackPt.peek(2)[1] 
+      const truncSize = 32
+      const dataPt = runState.stackPt.peek(2)[1]
       const memPt = runState.synthesizer.newPlacementMSTORE(truncSize, dataPt)
-      if (truncSize < dataPt.actualSize){
+      if (truncSize < dataPt.actualSize) {
         // StackPt에서 dataPt를 변형을 추적 memPt로 교체해 줍니다.
         runState.stackPt.swap(1)
         runState.stackPt.pop() // 기존 dataPt를 버립니다.
@@ -830,7 +830,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       const [offsetPt, newDataPt] = runState.stackPt.popN(2)
       const _offsetNum = Number(offsetPt.value)
-      if (_offsetNum != offsetNum || newDataPt.value != word){
+      if (_offsetNum != offsetNum || newDataPt.value != word) {
         throw new Error(`MSTORE: Data mismatch between stackPt and stack`)
       }
       runState.memoryPt.write(offsetNum, truncSize, newDataPt)
@@ -847,11 +847,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.memory.write(offsetNum, 1, buf)
 
       // For Synthesizer //
-      const truncSize=1 // MSTORE8은 최하위 1바이트만을 저장하고, 상위 바이트는 버림.
+      const truncSize = 1 // MSTORE8은 최하위 1바이트만을 저장하고, 상위 바이트는 버림.
       const dataPt = runState.stackPt.peek(2)[1] // StackPt에서 최상위 두번째 포인터를 리턴 (stack.ts 참고)
       // 데이터의 변형을 추적하면서 동시에 Placements에도 반영 해 줍니다.
       const memPt = runState.synthesizer.newPlacementMSTORE(truncSize, dataPt)
-      if (truncSize < dataPt.actualSize){
+      if (truncSize < dataPt.actualSize) {
         // StackPt에서 dataPt를 변형을 추적 memPt로 교체해 줍니다.
         runState.stackPt.swap(1)
         runState.stackPt.pop() // 기존 dataPt를 버립니다.
@@ -861,7 +861,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // 이제 일반적인 MSTORE 연산을 수행합니다
       const [offsetPt, newDataPt] = runState.stackPt.popN(2)
       const _offsetNum = Number(offsetPt.value)
-      if (_offsetNum != offsetNum || newDataPt.value != byte){
+      if (_offsetNum != offsetNum || newDataPt.value != byte) {
         throw new Error(`MSTORE8: Data mismatch between stackPt and stack`)
       }
       runState.memoryPt.write(offsetNum, truncSize, newDataPt)
@@ -1040,10 +1040,14 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.programCounter += numToPush
         runState.stack.push(loaded)
       }
-      
+
       // For Synthesizer
       const value = runState.stack.peek(1)[0]
-      const dataPt = runState.synthesizer.newPlacementPUSH(numToPush, runState.programCounterPrev, value)
+      const dataPt = runState.synthesizer.newPlacementPUSH(
+        numToPush,
+        runState.programCounterPrev,
+        value,
+      )
       runState.stackPt.push(dataPt)
     },
   ],
@@ -1722,14 +1726,14 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [offsetPt, lengthPt] = runState.stackPt.popN(2)
       const offsetNum = Number(offsetPt.value)
       const lengthNum = Number(lengthPt.value)
-      const nChunks = Math.ceil(lengthNum/32)
-      for (let i=0; i<nChunks; i++){
-        const chunkOffset = offsetNum + 32*i
+      const nChunks = Math.ceil(lengthNum / 32)
+      for (let i = 0; i < nChunks; i++) {
+        const chunkOffset = offsetNum + 32 * i
         const dataAliasInfos = runState.memoryPt.getDataAlias(chunkOffset, 32)
         runState.synthesizer.newPlacementRETURNs('RETURN', dataAliasInfos)
       }
       ////
-      
+
       runState.interpreter.finish(returnData)
     },
   ],

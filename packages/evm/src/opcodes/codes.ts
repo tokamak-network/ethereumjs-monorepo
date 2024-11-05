@@ -1,15 +1,16 @@
 import { Hardfork } from '@ethereumjs/common'
 
+import { subcircuits } from '../subcircuit_info.js'
+
 import { handlers } from './functions.js'
 import { dynamicGasHandlers } from './gas.js'
 import { getFullname } from './util.js'
 
+import type { SubcircuitCode, SubcircuitId } from '../synthesizer.js'
 import type { CustomOpcode } from '../types.js'
 import type { OpHandler } from './functions.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './gas.js'
 import type { Common } from '@ethereumjs/common'
-import { subcircuits } from '../subcircuit_info.js'
-import type { SubcircuitCode, SubcircuitId } from '../synthesizer.js'
 export class Opcode {
   readonly code: number
   readonly name: string
@@ -484,7 +485,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
   const ops = createOpcodes(opcodeBuilder)
 
   const subcircuitsId: SubcircuitId[] = []
-  
+
   subcircuits.forEach((entry) => {
     subcircuitsId[entry.id] = {
       code: parseInt(entry.opcode, 16),
@@ -502,7 +503,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
   for (const [opNumber, op] of ops) {
     const dynamicGas = dynamicGasHandlersCopy.get(opNumber)!
     const handler = handlersCopy.get(opNumber)!
-    const subcircuitCode = subcircuits.find(entry => parseInt(entry.opcode,16) === opNumber)
+    const subcircuitCode = subcircuits.find((entry) => parseInt(entry.opcode, 16) === opNumber)
     opcodeMap[opNumber] = {
       opcodeInfo: op,
       opHandler: handler,
@@ -516,7 +517,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
             inIdx: subcircuitCode.In_idx[0],
             nIn: subcircuitCode.In_idx[1],
           }
-        : undefined
+        : undefined,
     }
   }
 
