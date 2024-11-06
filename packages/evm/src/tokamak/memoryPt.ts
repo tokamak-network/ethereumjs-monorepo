@@ -1,13 +1,47 @@
 import type { DataPt } from './synthesizer.ts'
 
+/**
+ * 데이터 별칭 정보를 나타내는 배열입니다.
+ * @property {DataPt} dataPt - 원본 데이터 포인터
+ * @property {number} shift - 비트 이동 수 (양수는 SHL, 음수는 SHR)
+ * @property {string} masker - 유효한 바이트를 나타내는 16진수 문자열 (FF) 또는 유효하지 않은 바이트를 나타내는 00
+ */
 export type DataAliasInfos = { dataPt: DataPt; shift: number; masker: string }[]
-type _MemoryPt = Map<number, { memOffset: number; containerSize: number; dataPt: DataPt }>
+
+/**
+ * 메모리 정보를 나타내는 맵입니다.
+ * @property {number} memOffset - 메모리 오프셋
+ * @property {number} containerSize - 컨테이너 크기
+ * @property {DataPt} dataPt - 데이터 포인터
+ */
+type TMemoryPt = Map<number, { memOffset: number; containerSize: number; dataPt: DataPt }>
+/**
+ * 데이터 조각 정보를 나타내는 맵입니다.
+ * @property {Set<number>} originalRange - 원본 데이터 범위
+ * @property {Set<number>} validRange - 유효한 데이터 범위
+ */
 type _DataFragments = Map<number, { originalRange: Set<number>; validRange: Set<number> }>
 
+/**
+ * a부터 b까지의 연속된 숫자 집합을 생성합니다.
+ * 주로 다음과 같은 용도로 사용됩니다:
+ * - 특정 데이터가 차지하는 메모리 주소 범위를 나타낼 때 (예: 오프셋 2부터 5까지의 데이터)
+ * - 유효한 메모리 범위를 추적할 때 (예: 덮어쓰기 전후의 유효한 메모리 영역)
+ * @param a - 시작 숫자
+ * @param b - 끝 숫자
+ * @returns a부터 b까지의 연속된 숫자들을 포함하는 Set
+ */
 const createRangeSet = (a: number, b: number): Set<number> => {
   // the resulting increasing set from 'a' to 'b'
   return new Set(Array.from({ length: b - a + 1 }, (_, i) => a + i))
 }
+
+/**
+ * A에서 B를 뺀 집합을 반환합니다.
+ * @param A - 첫 번째 집합
+ * @param B - 두 번째 집합
+ * @returns A에서 B를 뺀 집합
+ */
 const setMinus = (A: Set<number>, B: Set<number>): Set<number> => {
   const result = new Set<number>()
   for (const element of A) {
@@ -26,7 +60,7 @@ const CONTAINER_SIZE = 8192
  * for the ethereum virtual machine.
  */
 export class MemoryPt {
-  _storePt: _MemoryPt
+  _storePt: TMemoryPt
   private _timeStamp: number
 
   constructor() {
@@ -92,27 +126,39 @@ export class MemoryPt {
     }
     */
 
-  getDataAlias(offset: number, size: number): DataAliasInfos {
+ /**
+   * 특정 메모리 범위에 대한 데이터 별칭 정보를 반환합니다
+   * @param offset - 읽기 시작할 메모리 위치
+   * @param size - 읽을 바이트 수 (32바이트를 초과할 수 없음)
+   * @returns {DataAliasInfos}
+   */
+  public getDataAlias(offset: number, size: number): DataAliasInfos {
     if (size > 32) {
       throw new Error(`The range of memory view exceeds 32 bytes. Try to chunk it in the Handlers.`)
     }
     const dataAliasInfos: DataAliasInfos = []
     const dataFragments = this._viewMemoryConflict(offset, size)
-    /*eslint-disable */
-    dataFragments.forEach((value, key) => {
+    
+    for (const [key, value] of dataFragments) {
       const dataEndOffset =
         this._storePt.get(key)!.memOffset + this._storePt.get(key)!.containerSize - 1
       const viewEndOffset = offset + size - 1
       dataAliasInfos.push({
         dataPt: this._storePt.get(key)!.dataPt,
-        // shift가 양의 값이면 SHL, 음의 값이면 SHR
+         // shift가 양의 값이면 SHL, 음의 값이면 SHR
         shift: (viewEndOffset - dataEndOffset) * 8,
         masker: this._generateMasker(offset, size, value.validRange),
       })
-    })
+    }
     return dataAliasInfos
   }
 
+  /**
+   * 메모리 영역에서 충돌 데이터 조각을 찾습니다.
+   * @param offset - 읽기 시작할 메모리 위치
+   * @param size - 읽을 바이트 수
+   * @returns {_DataFragments}
+   */
   private _viewMemoryConflict(offset: number, size: number) {
     const dataFragments: _DataFragments = new Map()
     const endOffset = offset + size - 1
@@ -174,7 +220,7 @@ export class MemoryPt {
         maskerString += '00'
       }
     }
-    //const maskerBigInt = BigInt(`0x${maskerString}`)
+    
     return maskerString
   }
 }
