@@ -1,6 +1,35 @@
 import type { DataPt } from './synthesizer.ts'
 
 /**
+ * Memory vs MemoryPt 클래스의 주요 차이점
+ * 
+ * 1. 데이터 구조
+ *    - Memory: Uint8Array (연속된 바이트 배열)
+ *    - MemoryPt: Map<number, { memOffset, containerSize, dataPt }> (메모리 포인터 맵)
+ * 
+ * 2. 저장 방식
+ *    - Memory: 실제 바이트 값을 연속된 메모리에 직접 저장
+ *    - MemoryPt: 데이터의 위치와 크기 정보를 포인터로 관리
+ * 
+ * 3. 읽기/쓰기 동작
+ *    - Memory: 실제 메모리에 직접 읽기/쓰기
+ *    - MemoryPt: 
+ *      - 쓰기: 새로운 데이터 포인터 생성 및 오버랩되는 영역 관리
+ *      - 읽기: getDataAlias를 통해 데이터 별칭 정보 반환
+ * 
+ * 4. 용도
+ *    - Memory: 실제 EVM 실행 시 메모리 조작
+ *    - MemoryPt: 심볼릭 실행을 위한 메모리 추적 및 분석
+ * 
+ * 5. 특징
+ *    - Memory: 연속된 메모리 공간, 단순한 바이트 조작
+ *    - MemoryPt: 
+ *      - 타임스탬프 기반 데이터 관리
+ *      - 메모리 영역 충돌 감지
+ *      - 데이터 별칭 정보 생성
+ */
+
+/**
  * 데이터 별칭 정보를 나타내는 배열입니다.
  * @property {DataPt} dataPt - 원본 데이터 포인터
  * @property {number} shift - 비트 이동 수 (양수는 SHL, 음수는 SHR)
@@ -220,7 +249,7 @@ export class MemoryPt {
         maskerString += '00'
       }
     }
-    
+
     return maskerString
   }
 }
