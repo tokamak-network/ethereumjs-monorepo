@@ -31,10 +31,10 @@ describe('synthesizer: ', () => {
     const lastPlacement = placementsArray[placementsArray.length - 1]
     const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].valuestr
 
-    console.group('Stack-Placement Value Comparison Test')
-    console.log('Last Stack Value:', lastStackValue)
-    console.log('Last Placement OutPt Value:', lastOutPtValue)
-    console.groupEnd()
+    // console.group('Stack-Placement Value Comparison Test')
+    // console.log('Last Stack Value:', lastStackValue)
+    // console.log('Last Placement OutPt Value:', lastOutPtValue)
+    // console.groupEnd()
 
     assert.strictEqual(
       lastStackValue,
