@@ -2,9 +2,11 @@
 REMOTE=$(git rev-parse --symbolic-full-name --abbrev-ref @{u})
 
 if [ -z "$REMOTE" ]; then
-    FILESCHANGED=". --ext .js,.jsx,.ts,.tsx"
+    # test/tokamak을 제외하고 모든 .js, .jsx, .ts, .tsx 파일을 검사
+    FILESCHANGED=$(find . -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) -not -path "*/test/tokamak/*")
 else
-    FILESCHANGED=$(git diff --diff-filter=d --name-only --relative $REMOTE | grep -E '\.(js|jsx|ts|tsx)')
+    # git diff에서도 test/tokamak 디렉토리 제외
+    FILESCHANGED=$(git diff --diff-filter=d --name-only --relative $REMOTE | grep -E '\.(js|jsx|ts|tsx)$' | grep -v "test/tokamak")
 fi
 
 echo $FILESCHANGED
