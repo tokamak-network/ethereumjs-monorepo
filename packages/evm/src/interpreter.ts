@@ -38,7 +38,11 @@ import type {
   EVMResult,
   Log,
 } from './types.js'
-import type { AccessWitnessInterface, Common, StateManagerInterface } from '@ethereumjs/common'
+import type {
+  Common,
+  StateManagerInterface,
+  VerkleAccessWitnessInterface,
+} from '@ethereumjs/common'
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
 
 const debugGas = debugDefault('evm:gas')
@@ -82,7 +86,7 @@ export interface Env {
   eof?: EOFEnv /* Optional EOF environment in case of EOF execution */
   blobVersionedHashes: PrefixedHexString[] /** Versioned hashes for blob transactions */
   createdAddresses?: Set<string>
-  accessWitness?: AccessWitnessInterface
+  accessWitness?: VerkleAccessWitnessInterface
   chargeCodeAccesses?: boolean
 }
 
@@ -495,6 +499,7 @@ export class Interpreter {
       function arrToStr(key: string, value: any) {
         return typeof value === 'bigint' ? value.toString() : value
       }
+
       const mapToStr = (map: Map<any, any>) => {
         return Object.fromEntries(
           Array.from(map, ([key, value]) => [
@@ -504,6 +509,7 @@ export class Interpreter {
         )
       }
 
+      const stringMemory = Buffer.from(this._runState.memory._store).toString('hex')
       const stringMemoryPt = mapToStr(this._runState.memoryPt._storePt)
       const stringPlacements = mapToStr(this._runState.synthesizer.placements)
 
@@ -522,7 +528,9 @@ export class Interpreter {
         this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
       }
       this.opDebuggers[name](JSON.stringify(opTrace))
-      console.log(`"memory": ${JSON.stringify(eventObj.memory)}\n`)
+      console.log('*****TOKAMAK****')
+      // console.log(`"memory": ${JSON.stringify(eventObj.memory)}\n`)
+      console.log(`"memory": ${stringMemory.slice(0, 256)}\n`)
       console.log(`"stackPt": ${JSON.stringify(this._runState.stackPt.getStack(), arrToStr, 2)}\n`)
       console.log(`"memoryPt": ${JSON.stringify(stringMemoryPt, null, 1)}\n`)
       console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)

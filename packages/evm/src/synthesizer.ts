@@ -142,13 +142,14 @@ export class Synthesizer {
       if (Math.abs(Number(shift)) > 0) {
         // shift 값과 shift 방향과의 관계는 MemoryPt에서 정의하였음
         const subcircuitName: string = shift > 0 ? 'SHL' : 'SHR'
-        this.auxin.push(shift)
+        const absShift = shift < 0n ? -shift : shift
+        this.auxin.push(absShift)
         const auxinIndex = this.auxin.length - 1
         const auxValue = this.auxin[auxinIndex]
         // SHR 혹은 SHL은 두 개의 입력과 하나의 출력을 가집니다. 각각,
         const inPts: DataPt[] = []
         inPts[0] = this.newDataPt('auxin', auxinIndex, auxValue)
-        inPts[1] = dataPt
+        inPts[1] = this.placements.get(this.placementIndex - 1)!.outPts[0]
         shiftOutValue =
           shift > 0 ? inPts[1].value << inPts[0].value : inPts[1].value >> inPts[0].value
         const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, shiftOutValue)]
@@ -265,6 +266,17 @@ export class Synthesizer {
         this._place(name, inPts, outPts)
         break
       }
+
+      // case 'MUL': {
+      //   const nInputs = 2
+      //   if (inPts.length !== nInputs) {
+      //     throw new Error(`MUL takes 2 inputs, while this placement takes ${inPts.length}.`)
+      //   }
+      //   const outValue = inPts[0].value * inPts[1].value
+      //   outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+      //   this._place(name, inPts, outPts)
+      //   break
+      // }
 
       default:
         throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)

@@ -1,26 +1,26 @@
-import { ERROR, EvmError } from './exceptions.js'
+import { ERROR, EvmError } from '../exceptions.js'
 
 import type { DataPt } from './synthesizer.js'
 
 /**
  * Stack vs StackPt 클래스의 주요 차이점
- * 
+ *
  * 1. 데이터 타입
  *    - Stack: bigint[] (실제 값 저장)
  *    - StackPt: DataPt[] (데이터 포인터 저장)
- * 
+ *
  * 2. 용도
  *    - Stack: 실제 EVM 실행 시 사용되는 스택
  *    - StackPt: 심볼릭 실행을 위한 스택
- * 
+ *
  * 3. 연산 처리
  *    - Stack: 실제 값에 대한 연산 수행 (예: 실제 덧셈)
  *    - StackPt: 데이터 흐름 추적을 위한 포인터 관리
- * 
+ *
  * 4. 활용
  *    - Stack: 실제 트랜잭션 처리, 컨트랙트 실행
  *    - StackPt: 프로그램 분석, 최적화, 버그 검출
- * 
+ *
  * 두 클래스는 동일한 인터페이스(push, pop, swap 등)를 제공하지만,
  * 내부적으로 다른 목적으로 동작합니다.
  */
@@ -29,28 +29,28 @@ export type TStackPt = DataPt[]
 
 /**
  * EVM의 심볼릭 실행을 위한 스택 구현체
- * 
+ *
  * 주요 특징:
  * 1. 용도
  *    - EVM의 심볼릭 실행에서 사용되는 스택
  *    - DataPt 타입의 데이터 포인터들을 관리
- * 
+ *
  * 2. 메모리 관리 방식
  *    - 한번 할당된 배열 크기는 감소하지 않음
  *    - pop 연산 시 실제로 항목을 삭제하지 않고 _len을 감소시켜 관리
  *    - 이는 메모리 재할당 비용을 줄이기 위한 최적화 전략
- * 
+ *
  * 3. 주요 제약사항
  *    - 최대 스택 높이(_maxHeight) 제한
  *    - 스택 오버플로우/언더플로우 체크
- * 
+ *
  * 4. 주요 연산
  *    - push: 새로운 데이터 포인터 추가
  *    - pop: 최상위 데이터 포인터 제거
  *    - peek: 스택 내용 확인
  *    - swap: 스택 내 항목 위치 교환
  *    - dup: 스택 내 항목 복제
- * 
+ *
  * 이 클래스는 실제 EVM 스택과 동일한 인터페이스를 제공하지만,
  * 실제 값(bigint) 대신 데이터 포인터(DataPt)를 다룬다는 점이 특징입니다.
  */

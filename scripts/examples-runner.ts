@@ -18,6 +18,8 @@ const getExample = (fileName: string): Promise<NodeModule> | undefined => {
 const main = async () => {
   const files = readdirSync(path)
   for (const file of files) {
+    // console.log(file)
+    // if (file !== 'fibonacci-synthesizer.ts') return
     const runner = getExample(file)
     if (runner !== undefined) {
       console.log(` ---- Run example: ${file} ----`)

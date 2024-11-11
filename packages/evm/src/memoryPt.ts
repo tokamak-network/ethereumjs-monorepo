@@ -1,4 +1,6 @@
-import type { DataPt } from './synthesizer.ts'
+import { time } from 'console'
+
+import type { DataPt } from './synthesizer.js'
 
 export type DataAliasInfos = { dataPt: DataPt; shift: number; masker: string }[]
 type _MemoryPt = Map<number, { memOffset: number; containerSize: number; dataPt: DataPt }>
@@ -120,10 +122,11 @@ export class MemoryPt {
     let i = 0
 
     for (const timeStamp of sortedTimeStamps) {
-      const containerOffset = this._storePt.get(timeStamp)!.memOffset
-      const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
+      // const containerOffset = this._storePt.get(timeStamp)!.memOffset
+      // const storedEndOffset = this._storePt.get(timeStamp)!.memOffset
       // Find the offset where nonzero value starts
-      const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.actualSize + 1
+      const storedOffset = this._storePt.get(timeStamp)!.memOffset
+      const storedEndOffset = storedOffset + this._storePt.get(timeStamp)!.containerSize - 1
       const sortedTimeStamps_firsts = sortedTimeStamps.slice(0, i)
       // If data is in the range
       if (storedEndOffset >= offset && storedOffset <= endOffset) {

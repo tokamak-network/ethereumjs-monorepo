@@ -1,6 +1,6 @@
-import { subcircuits } from './subcircuit_info.ts'
+import { subcircuits } from './subcircuit_info.js'
 
-import type { DataAliasInfos } from './memoryPt.ts'
+import type { DataAliasInfos } from './memoryPt.js'
 
 /**
  * @property {number} subcircuitId - 서브서킷의 식별자.
@@ -388,7 +388,8 @@ export class Synthesizer {
    */
   private _applyShift(shift: bigint, dataPt: DataPt): bigint {
     const subcircuitName: string = shift > 0 ? 'SHL' : 'SHR'
-    this._addAuxin(shift)
+    const absShift = shift < 0n ? -shift : shift
+    this._addAuxin(absShift)
     const auxinIndex = this.auxin.length - 1
     const auxValue = this.auxin[auxinIndex]
     const inPts: DataPt[] = []

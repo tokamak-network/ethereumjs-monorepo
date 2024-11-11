@@ -122,7 +122,7 @@ export const subcircuits = [
   {
     id: 15,
     opcode: '1c1',
-    name: 'SHR-L',
+    name: 'SHR',
     Nwires: 19,
     Out_idx: [1, 1],
     In_idx: [2, 2],
