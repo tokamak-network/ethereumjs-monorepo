@@ -1,4 +1,3 @@
 {
-  "extends": "../../config/tsconfig.json",
-  "include": ["src/**/*.ts", "src/**/*.json", "test/**/*.ts", "../util/src/asyncemitter.ts"]
+  "extends": "../../config/tsconfig.json"
 }

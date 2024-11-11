@@ -52,7 +52,7 @@
     "test": "npm run test:node && npm run test:browser",
     "test:browser": "npx vitest run --config=./vitest.config.browser.mts",
     "test:node": "npx vitest run",
-    "test:tokamak": "npx vitest test/tokamak/synthesizer.spec.ts",
+    "test:tokamak": "npx vitest run test/tokamak",
     "tsc": "../../config/cli/ts-compile.sh",
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },

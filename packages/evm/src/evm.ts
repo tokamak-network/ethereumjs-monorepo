@@ -51,7 +51,7 @@ import type { MessageWithTo } from './message.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/gas.js'
 import type { OpHandler, OpcodeList, OpcodeMap } from './opcodes/index.js'
 import type { CustomPrecompile, PrecompileFunc } from './precompiles/index.js'
-import type { SubcircuitId } from './synthesizer.js'
+import type { SubcircuitId } from './tokamak/synthesizer.js'
 import type { Common, StateManagerInterface } from '@ethereumjs/common'
 
 const debug = debugDefault('evm:evm')

@@ -1,4 +1,3 @@
-//DEBUG=ethjs,evm:ops:* tsx resolvingDataAlias.ts
 import { hexToBytes } from '@ethereumjs/util'
 
 import { createEVM } from '../src/constructors.js'
