@@ -290,6 +290,17 @@ export class Synthesizer {
         break
       }
 
+      case 'MUL': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`MUL takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+        const outValue = inPts[0].value * inPts[1].value
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
       default:
         throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
     }

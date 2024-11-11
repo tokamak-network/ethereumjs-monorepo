@@ -108,9 +108,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      // const inPts = runState.stackPt.popN(2)
-      // const outPts = runState.synthesizer.newPlacementArith('MUL', inPts)
-      // runState.stackPt.push(outPts[0])
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('MUL', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x03: SUB

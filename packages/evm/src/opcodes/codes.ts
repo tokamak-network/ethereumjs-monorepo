@@ -1,12 +1,12 @@
 import { Hardfork } from '@ethereumjs/common'
 
-import { subcircuits } from '../subcircuit_info.js'
+import { subcircuits } from '../tokamak/subcircuit_info.js'
 
 import { handlers } from './functions.js'
 import { dynamicGasHandlers } from './gas.js'
 import { getFullname } from './util.js'
 
-import type { SubcircuitCode, SubcircuitId } from '../synthesizer.js'
+import type { SubcircuitCode, SubcircuitId } from '../tokamak/synthesizer.js'
 import type { CustomOpcode } from '../types.js'
 import type { OpHandler } from './functions.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './gas.js'
