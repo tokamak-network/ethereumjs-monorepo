@@ -808,6 +808,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
       const mutDataPt = runState.synthesizer.newPlacementMLOAD(dataAliasInfos)
       if (Number(pos) !== offsetNum || runState.stack.peek(1)[0] !== mutDataPt.value) {
+        console.log('******ERROR******')
+        console.log('runState.stack : ', runState.stack)
+        console.log('mutDataPt : ', mutDataPt)
         throw new Error(`MLOAD: Data mismatch between stackPt and stack`)
       }
       runState.stackPt.push(mutDataPt)
