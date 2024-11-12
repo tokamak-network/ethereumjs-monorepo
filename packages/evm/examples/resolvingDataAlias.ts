@@ -2,6 +2,9 @@
 import { hexToBytes } from '@ethereumjs/util'
 
 import { createEVM } from '../src/constructors.js'
+
+import type { ExecResult } from '../src/types.js'
+
 function arrToStr(key: string, value: any) {
   return typeof value === 'bigint' ? value.toString() : value
 }
@@ -14,14 +17,43 @@ const mapToStr = (map: Map<any, any>) => {
   )
 }
 
+const printEvmResult = (res: ExecResult) => {
+  const stringPlacements = mapToStr(res.runState!.synthesizer.placements)
+  console.log('******RESULT******')
+  console.log(`stack(str): ${'0x' + res.runState!.stack.peek(1)[0].toString(16)}`)
+  console.log(`stackPt: ${JSON.stringify(res.runState!.stackPt.getStack(), arrToStr, 2)}\n`)
+  console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+}
+
 const main = async () => {
   const evm = await createEVM()
-  console.log('hex to bytes: ', hexToBytes('0x63c0cac01a60225263b01dface601e52611eaf601c52602051'))
+
   const res = await evm.runCode({
-    code: hexToBytes('0x63c0cac01a60225263b01dface601e52611eaf601c52602051'),
+    code: hexToBytes(
+      '0x' +
+        '63' +
+        'c0cac01a' + // PUSH4 (0x63) + 4바이트 값 push
+        '60' +
+        '22' + // PUSH1 (0x60) + 1바이트 값 push
+        '52' + // MSTORE (0x52)
+        '63' +
+        'b01dface' + // PUSH4 (0x63) + 4바이트 값 push
+        '60' +
+        '1e' + // PUSH1 (0x60) + 1바이트 값 push
+        '52' + // MSTORE (0x52)
+        '61' +
+        '1eaf' + // PUSH2 (0x61) + 2바이트 값 push
+        '60' +
+        '1c' + // PUSH1 (0x60) + 1바이트 값 push
+        '52' + // MSTORE (0x52)
+        '60' +
+        '20' + // PUSH1 (0x60) + 1바이트 값 push
+        '51', // MLOAD (0x51),
+    ),
   })
 
   const stringPlacements = mapToStr(res.runState!.synthesizer.placements)
+  console.log('******RESULT******')
   console.log(`stack(str): ${'0x' + res.runState!.stack.peek(1)[0].toString(16)}`) // 3n
   console.log(`stackPt: ${JSON.stringify(res.runState!.stackPt.getStack(), arrToStr, 2)}\n`) // 3n
   console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)

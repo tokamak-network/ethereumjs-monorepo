@@ -528,7 +528,6 @@ export class Interpreter {
         this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
       }
       this.opDebuggers[name](JSON.stringify(opTrace))
-      console.log('*****TOKAMAK****')
       // console.log(`"memory": ${JSON.stringify(eventObj.memory)}\n`)
       console.log(`"memory": ${stringMemory.slice(0, 256)}\n`)
       console.log(`"stackPt": ${JSON.stringify(this._runState.stackPt.getStack(), arrToStr, 2)}\n`)

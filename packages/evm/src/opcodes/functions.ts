@@ -120,6 +120,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = mod(a - b, TWO_POW256)
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SUB', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x04: DIV
@@ -807,8 +812,33 @@ export const handlers: Map<number, OpHandler> = new Map([
       const offsetNum = Number(offsetPt.value)
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
       const mutDataPt = runState.synthesizer.newPlacementMLOAD(dataAliasInfos)
+
+      /***
+       * EVM 실행과 포인터 추적 시스템 간의 일관성 검증
+       * 1. 메모리 오프셋 검증:
+       *    - pos: 메인 스택에서 pop된 실제 메모리 오프셋
+       *    - offsetNum: 포인터 스택(stackPt)에서 추적된 메모리 오프셋
+       * 2. 로드된 값 검증:
+       *    - stack.peek(1)[0]: 메모리 로드 후 스택에 push된 실제 값
+       *    - mutDataPt.value: 포인터 추적 시스템이 계산한 예상 메모리 값
+       * 이 값들이 일치하지 않으면 EVM 실행과 포인터 추적 사이에
+       * 심각한 불일치가 있음을 의미하므로 즉시 에러 처리가 필요
+       */
       if (Number(pos) !== offsetNum || runState.stack.peek(1)[0] !== mutDataPt.value) {
         console.log('******ERROR******')
+        if (Number(pos) !== offsetNum) {
+          console.group()
+          console.log('***Number(pos) !== offsetNum)***')
+          console.log(Number(pos), offsetNum)
+          console.groupEnd()
+        }
+        if (runState.stack.peek(1)[0] !== mutDataPt.value) {
+          console.group()
+          console.log('***runState.stack.peek(1)[0] !== mutDataPt.value***')
+          console.log(runState.stack.peek(1)[0], mutDataPt.value)
+          console.groupEnd()
+        }
+
         console.log('runState.stack : ', runState.stack)
         console.log('mutDataPt : ', mutDataPt)
         throw new Error(`MLOAD: Data mismatch between stackPt and stack`)

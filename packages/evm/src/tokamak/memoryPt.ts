@@ -192,8 +192,8 @@ export class MemoryPt {
     const dataFragments: _DataFragments = new Map()
     const endOffset = offset + size - 1
     const sortedTimeStamps = Array.from(this._storePt.keys()).sort((a, b) => a - b)
-    let i = 0
 
+    let i = 0
     for (const timeStamp of sortedTimeStamps) {
       const containerOffset = this._storePt.get(timeStamp)!.memOffset
       const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
@@ -204,8 +204,9 @@ export class MemoryPt {
       if (storedEndOffset >= offset && storedOffset <= endOffset) {
         const overlapStart = Math.max(offset, storedOffset)
         const overlapEnd = Math.min(endOffset, storedEndOffset)
-        const thisDataValidRange = createRangeSet(overlapStart, overlapEnd)
         const thisDataOriginalRange = createRangeSet(storedOffset, storedEndOffset)
+        const thisDataValidRange = createRangeSet(overlapStart, overlapEnd)
+
         dataFragments.set(timeStamp, {
           originalRange: thisDataOriginalRange,
           validRange: thisDataValidRange,

@@ -5,14 +5,14 @@ import { createEVM } from '../src/constructors.js'
 const main = async () => {
   const evm = await createEVM()
 
-  //단순 MUL 연산 테스트
-  console.log('\nTesting Simple MUL Operations:')
-  const simpleRes = await evm.runCode({
-    code: hexToBytes('0x600360040200'), // PUSH1 3, PUSH1 4, MUL
-  })
+  //   //단순 MUL 연산 테스트
+  //   console.log('\nTesting Simple MUL Operations:')
+  //   const simpleRes = await evm.runCode({
+  //     code: hexToBytes('0x600360040200'), // PUSH1 3, PUSH1 4, MUL
+  //   })
 
-  const simpleStackValue = simpleRes.runState?.stack.peek(1)[0]
-  console.log(`Simple MUL result (3 * 4): ${simpleStackValue}`)
+  //   const simpleStackValue = simpleRes.runState?.stack.peek(1)[0]
+  //   console.log(`Simple MUL result (3 * 4): ${simpleStackValue}`)
 
   //복합 MUL 연산 테스트
   console.log('\nTesting Complex MUL Operations:')
@@ -20,23 +20,22 @@ const main = async () => {
     code: hexToBytes(
       '0x' +
         '63' +
-        'c0cac002' + // PUSH4 (0x63) + 4바이트 값 push
+        'c0cac002' + // PUSH4 첫 번째 값
         '60' +
-        '22' + // PUSH1 (0x60) + 1바이트 값 push
-        '52' + // MSTORE (0x52)
+        '40' +
+        '52' + // MSTORE
         '63' +
-        'b01dface' + // PUSH4 (0x63) + 4바이트 값 push
+        'b01dface' + // PUSH4 두 번째 값
         '60' +
-        '1e' + // PUSH1 (0x60) + 1바이트 값 push
-        '52' + // MSTORE (0x52)
-        '61' +
-        '1eaf' + // PUSH2 (0x61) + 2바이트 값 push
+        '20' +
+        '52' + // MSTORE
         '60' +
-        '1c' + // PUSH1 (0x60) + 1바이트 값 push
-        '52' + // MSTORE (0x52)
+        '40' + // 첫 번째 값의 위치
+        '51' + // MLOAD
         '60' +
-        '20' + // PUSH1 (0x60) + 1바이트 값 push
-        '51', // MLOAD (0x51)
+        '20' + // 두 번째 값의 위치
+        '51' + // MLOAD
+        '02', // MUL 연산 추가
     ),
   })
 
@@ -59,6 +58,15 @@ const main = async () => {
     console.log(`Operation: ${placement.name}`)
     console.log(`Number of inputs: ${placement.inPts.length}`)
     console.log(`Number of outputs: ${placement.outPts.length}`)
+    console.log(
+      'Placement details:',
+      JSON.stringify(
+        placement,
+        (key, value) => (typeof value === 'bigint' ? value.toString() : value),
+        2,
+      ),
+    )
+
     index++
   }
 }
