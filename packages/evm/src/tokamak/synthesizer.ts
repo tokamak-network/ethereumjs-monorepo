@@ -1,4 +1,5 @@
 import { subcircuits } from './subcircuit_info.js'
+import { powMod } from './utils.js'
 
 import type { DataAliasInfos } from './memoryPt.js'
 
@@ -307,6 +308,294 @@ export class Synthesizer {
           throw new Error(`SUB takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
         const outValue = inPts[0].value - inPts[1].value
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'DIV': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`DIV takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+        // 0으로 나누기 처리
+        const outValue = inPts[1].value === 0n ? 0n : inPts[0].value / inPts[1].value
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SDIV': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SDIV takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 부호 있는 정수로 변환 (256비트)
+        const convertToSigned = (value: bigint): bigint => {
+          const mask = 1n << 255n
+          return value & mask ? value - (1n << 256n) : value
+        }
+
+        const a = convertToSigned(inPts[0].value)
+        const b = convertToSigned(inPts[1].value)
+
+        // 0으로 나누기 처리
+        let outValue = 0n
+        if (b !== 0n) {
+          // 부호 있는 나눗셈 수행
+          outValue = a / b
+          // 결과를 다시 unsigned로 변환
+          if (outValue < 0n) {
+            outValue = (1n << 256n) + outValue
+          }
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'MOD': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`MOD takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+        // 0으로 나누기 처리
+        const outValue = inPts[1].value === 0n ? 0n : inPts[0].value % inPts[1].value
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SMOD': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SMOD takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 부호 있는 정수로 변환 (256비트)
+        const convertToSigned = (value: bigint): bigint => {
+          const mask = 1n << 255n
+          return value & mask ? value - (1n << 256n) : value
+        }
+
+        const a = convertToSigned(inPts[0].value)
+        const b = convertToSigned(inPts[1].value)
+
+        // 0으로 나누기 처리
+        let outValue = 0n
+        if (b !== 0n) {
+          // 부호 있는 모듈로 연산 수행
+          outValue = a % b
+          // 결과의 부호는 피제수(a)의 부호를 따름
+          if (outValue < 0n) {
+            outValue = (1n << 256n) + outValue
+          }
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'ADDMOD': {
+        const nInputs = 3
+        if (inPts.length !== nInputs) {
+          throw new Error(`ADDMOD takes 3 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        let outValue = 0n
+        // N이 0이 아닌 경우에만 연산 수행
+        if (inPts[2].value !== 0n) {
+          // 먼저 덧셈을 수행한 후 모듈러 연산
+          outValue = (inPts[0].value + inPts[1].value) % inPts[2].value
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'MULMOD': {
+        const nInputs = 3
+        if (inPts.length !== nInputs) {
+          throw new Error(`MULMOD takes 3 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        let outValue = 0n
+        // N이 0이 아닌 경우에만 연산 수행
+        if (inPts[2].value !== 0n) {
+          // 먼저 곱셈을 수행한 후 모듈러 연산
+          outValue = (inPts[0].value * inPts[1].value) % inPts[2].value
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'EXP': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`EXP takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        const base = inPts[0].value
+        const exponent = inPts[1].value
+
+        // 특수 케이스 처리
+        let outValue: bigint
+        if (exponent === 0n) {
+          outValue = 1n
+        } else if (base === 0n) {
+          outValue = 0n
+        } else {
+          // 모든 연산은 2^256 모듈러 내에서 수행됨
+          // EVM의 256비트 연산 범위를 벗어나지 않도록 함
+          const modulus = 1n << 256n
+          outValue = powMod(base, exponent, modulus)
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'EQ': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`EQ takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        const outValue = inPts[0].value === inPts[1].value ? 1n : 0n
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'ISZERO': {
+        const nInputs = 1 // ISZERO는 하나의 입력만 받음, In_idx : [2, 1]
+        if (inPts.length !== nInputs) {
+          throw new Error(`ISZERO takes 1 input, while this placement takes ${inPts.length}.`)
+        }
+
+        const outValue = inPts[0].value === 0n ? 1n : 0n
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SHL': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SHL takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        const shift = inPts[0].value // 시프트할 비트 수
+        const value = inPts[1].value // 시프트될 값
+
+        let outValue: bigint
+        /**
+         * @question (Ale)
+         *
+         * shift 수가 256비트를 초과하면 에러 처리를 해야되는지 비트 사이즈에 맞게 밸류 조정을 해야 하는지?
+         */
+        if (shift >= 256n) {
+          // 256비트 이상 시프트하면 0이 됨
+          outValue = 0n
+        } else {
+          // 왼쪽 시프트 수행 후 256비트로 자름
+          outValue = (value << shift) & ((1n << 256n) - 1n)
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SHR': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SHR takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        const shift = inPts[0].value // 시프트할 비트 수
+        const value = inPts[1].value // 시프트될 값
+
+        let outValue: bigint
+        if (shift >= 256n) {
+          // 256비트 이상 시프트하면 0이 됨
+          outValue = 0n
+        } else {
+          // 오른쪽 시프트 수행
+          outValue = value >> shift
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'LT': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`LT takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 부호 없는(unsigned) 비교 수행
+        const outValue = inPts[0].value < inPts[1].value ? 1n : 0n
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'GT': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`GT takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 부호 없는(unsigned) 비교 수행
+        const outValue = inPts[0].value > inPts[1].value ? 1n : 0n
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'NOT': {
+        const nInputs = 1
+        if (inPts.length !== nInputs) {
+          throw new Error(`NOT takes 1 input, while this placement takes ${inPts.length}.`)
+        }
+
+        // 256비트 NOT 연산 수행
+        const outValue = ~inPts[0].value & ((1n << 256n) - 1n)
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'BYTE': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`BYTE takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        const index = inPts[0].value
+        const word = inPts[1].value
+
+        let outValue: bigint
+        if (index >= 32n) {
+          // 인덱스가 31보다 크면 0 반환
+          outValue = 0n
+        } else {
+          // 1. 원하는 바이트를 오른쪽으로 시프트
+          // 2. 최하위 바이트만 남기기 위해 0xFF와 AND 연산
+          const shiftBits = (31n - index) * 8n
+          outValue = (word >> shiftBits) & 0xffn
+        }
+
         outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(name, inPts, outPts)
         break

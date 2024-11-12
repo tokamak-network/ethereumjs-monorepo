@@ -127,6 +127,10 @@ export const subcircuits = [
     Out_idx: [1, 1],
     In_idx: [2, 2],
   },
+  /**
+   * @question (Ale)
+   * 이더리움 opcode에는 존재하지 않는 것 같은데, SHR-H가 무엇인가요? high bits?
+   */
   {
     id: 16,
     opcode: '1c2',

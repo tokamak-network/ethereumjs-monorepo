@@ -139,6 +139,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = mod(a / b, TWO_POW256)
       }
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('DIV', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x05: SDIV
@@ -153,6 +158,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = toTwos(fromTwos(a) / fromTwos(b))
       }
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SDIV', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x06: MOD
@@ -167,6 +177,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = mod(a, b)
       }
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('MOD', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x07: SMOD
