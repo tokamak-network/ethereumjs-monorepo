@@ -72,6 +72,12 @@ const mapPush = (map: Placements, value: PlacementEntry) => {
   map.set(key, value)
 }
 
+// 부호 있는 정수로 변환 (256비트)
+const convertToSigned = (value: bigint): bigint => {
+  const mask = 1n << 255n
+  return value & mask ? value - (1n << 256n) : value
+}
+
 /**
  * Synthesizer 클래스는 서브서킷과 관련된 데이터를 관리합니다.
  *
@@ -329,12 +335,6 @@ export class Synthesizer {
         const nInputs = 2
         if (inPts.length !== nInputs) {
           throw new Error(`SDIV takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 부호 있는 정수로 변환 (256비트)
-        const convertToSigned = (value: bigint): bigint => {
-          const mask = 1n << 255n
-          return value & mask ? value - (1n << 256n) : value
         }
 
         const a = convertToSigned(inPts[0].value)
@@ -596,6 +596,145 @@ export class Synthesizer {
           outValue = (word >> shiftBits) & 0xffn
         }
 
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SAR': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SAR takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        const shift = inPts[0].value // 시프트할 비트 수
+        const value = inPts[1].value // 시프트될 값
+
+        let outValue: bigint
+        if (shift >= 256n) {
+          // 256비트 이상 시프트할 경우
+          // 최상위 비트(부호 비트)가 1이면 모든 비트가 1, 0이면 모든 비트가 0
+          outValue = (value & (1n << 255n)) === 0n ? 0n : (1n << 256n) - 1n
+        } else {
+          // 부호 비트 확인 (최상위 비트)
+          const isNegative = (value & (1n << 255n)) !== 0n
+
+          if (isNegative) {
+            // 음수인 경우: 오른쪽 시프트 후 왼쪽에 1을 채움
+            const mask = ((1n << 256n) - 1n) << (256n - shift)
+            outValue = (value >> shift) | mask
+          } else {
+            // 양수인 경우: 일반 오른쪽 시프트
+            outValue = value >> shift
+          }
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SIGNEXTEND': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SIGNEXTEND takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+        const k = inPts[0].value // 확장할 바이트 위치 (0부터 시작)
+        const x = inPts[1].value // 확장할 숫자
+
+        let outValue: bigint
+        if (k > 30n) {
+          // k가 30보다 크면 (31바이트 이상을 가리키면) 입력값을 그대로 반환
+          // 이는 EVM이 256비트(32바이트)를 사용하기 때문
+          outValue = x
+        } else {
+          // k번째 바이트의 최상위 비트 위치 계산
+          const bitPosition = (k + 1n) * 8n - 1n
+          // k번째 바이트의 최상위 비트(부호 비트) 확인
+          const signBit = (x >> bitPosition) & 1n
+
+          if (signBit === 1n) {
+            // 부호 비트가 1이면 (음수), 상위 비트들을 1로 채움
+            const mask = ((1n << 256n) - 1n) << bitPosition
+            outValue = x | mask
+          } else {
+            // 부호 비트가 0이면 (양수), 상위 비트들을 0으로 채움
+            const mask = (1n << bitPosition) - 1n
+            outValue = x & mask
+          }
+        }
+
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SLT': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SLT takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 두 입력값을 부호 있는 정수로 변환하여 비교
+        const a = convertToSigned(inPts[0].value)
+        const b = convertToSigned(inPts[1].value)
+
+        const outValue = a < b ? 1n : 0n
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'SGT': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`SGT takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 두 입력값을 부호 있는 정수로 변환하여 비교
+        const a = convertToSigned(inPts[0].value)
+        const b = convertToSigned(inPts[1].value)
+
+        const outValue = a > b ? 1n : 0n
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'AND': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`AND takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 두 입력값에 대해 비트 AND 연산 수행
+        const outValue = inPts[0].value & inPts[1].value
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'OR': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`OR takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 두 입력값에 대해 비트 OR 연산 수행
+        const outValue = inPts[0].value | inPts[1].value
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        break
+      }
+
+      case 'XOR': {
+        const nInputs = 2
+        if (inPts.length !== nInputs) {
+          throw new Error(`XOR takes 2 inputs, while this placement takes ${inPts.length}.`)
+        }
+
+        // 두 입력값에 대해 비트 XOR 연산 수행
+        const outValue = inPts[0].value ^ inPts[1].value
         outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(name, inPts, outPts)
         break

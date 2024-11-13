@@ -196,6 +196,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = fromTwos(a) % fromTwos(b)
       }
       runState.stack.push(toTwos(r))
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SMOD', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x08: ADDMOD
@@ -210,6 +215,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = mod(a + b, c)
       }
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(3)
+      const outPts = runState.synthesizer.newPlacementArith('ADDMOD', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x09: MULMOD
@@ -224,6 +234,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = mod(a * b, c)
       }
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(3)
+      const outPts = runState.synthesizer.newPlacementArith('MULMOD', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x0a: EXP
@@ -255,6 +270,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       const r = exponentiation(base, exponent)
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('EXP', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x0b: SIGNEXTEND
@@ -273,6 +293,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         }
       }
       runState.stack.push(val)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SIGNEXTEND', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x10 range - bit ops
@@ -283,6 +308,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = a < b ? BIGINT_1 : BIGINT_0
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('LT', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x11: GT
@@ -292,6 +322,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = a > b ? BIGINT_1 : BIGINT_0
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('GT', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x12: SLT
@@ -301,6 +336,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = fromTwos(a) < fromTwos(b) ? BIGINT_1 : BIGINT_0
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SLT', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x13: SGT
@@ -310,6 +350,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = fromTwos(a) > fromTwos(b) ? BIGINT_1 : BIGINT_0
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SGT', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x14: EQ
@@ -319,6 +364,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = a === b ? BIGINT_1 : BIGINT_0
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('EQ', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x15: ISZERO
@@ -328,6 +378,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const a = runState.stack.pop()
       const r = a === BIGINT_0 ? BIGINT_1 : BIGINT_0
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(1)
+      const outPts = runState.synthesizer.newPlacementArith('ISZERO', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x16: AND
@@ -337,6 +392,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = a & b
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('AND', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x17: OR
@@ -346,6 +406,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = a | b
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('OR', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x18: XOR
@@ -355,6 +420,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2)
       const r = a ^ b
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('XOR', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x19: NOT
@@ -364,6 +434,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       const a = runState.stack.pop()
       const r = BigInt.asUintN(256, ~a)
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(1)
+      const outPts = runState.synthesizer.newPlacementArith('NOT', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x1a: BYTE
@@ -378,6 +453,11 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const r = (word >> ((BIGINT_31 - pos) * BIGINT_8)) & BIGINT_255
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('BYTE', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x1b: SHL
@@ -392,6 +472,11 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const r = (b << a) & MAX_INTEGER_BIGINT
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SHL', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x1c: SHR
@@ -406,6 +491,11 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const r = b >> a
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SHR', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x1d: SAR
@@ -436,6 +526,11 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = c
       }
       runState.stack.push(r)
+
+      // For Synthesizer //
+      const inPts = runState.stackPt.popN(2)
+      const outPts = runState.synthesizer.newPlacementArith('SAR', inPts)
+      runState.stackPt.push(outPts[0])
     },
   ],
   // 0x20 range - crypto
