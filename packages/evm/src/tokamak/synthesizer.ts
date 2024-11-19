@@ -4,6 +4,18 @@ import { powMod } from './utils.js'
 import type { DataAliasInfos } from './memoryPt.js'
 
 /**
+ * @TODO
+ * 
+ * 1. loadSubcircuit을 분할
+ *  -> 1-1. public load
+ *    -> envirmental information, 최종 출력
+ *    -> 
+ *  -> 1-2. private load
+ *    -> 바이트 코드 데이터, auxin 데이터
+ * 
+ /
+
+
  * @property {number} subcircuitId - 서브서킷의 식별자.
  * @property {number} nWire - 서브서킷의 와이어 수.
  * @property {number} outIdx - 출력 인덱스.
@@ -142,7 +154,7 @@ export class Synthesizer {
    */
   public newPlacementPUSH(numToPush: number, programCounter: number, value: bigint): DataPt {
     const pointerIn: DataPt = this.newDataPt('code', programCounter + 1, value)
-    // code 데이터는 항상 Placements의 0번째 엔트리에 저장됩니다.
+
     // 기존 output list에 이어서 추가
     const outOffset = this.placements.get(0)!.outPts.length
     const pointerOut: DataPt = this.newDataPt(0, outOffset, value)

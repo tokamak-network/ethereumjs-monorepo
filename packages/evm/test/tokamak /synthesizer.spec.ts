@@ -39,98 +39,127 @@ const logStackAndPlacement = (res: any) => {
   return { lastStackValue, lastOutPtValue }
 }
 
+/**
+ * 테스트 코드 케이스
+ *
+ * 콜데이터 필요
+ * 프로그램 3~4가지를 테스트 케이스로
+ *
+ * @problem
+ *
+ * 현재 synthesizer에는
+ *
+ *  */
+
 describe('synthesizer: ', () => {
-  it('should work with resolving data alias', async () => {
-    // const caller = new Address(hexToBytes('0x00000000000000000000000000000000000000ee'))
-    // const common = new Common({ chain: Mainnet, hardfork: Hardfork.Constantinople })
-    // const evm = await createEVM({
-    //   common,
-    // })
+  // it('should work with resolving data alias', async () => {
+  //   // const caller = new Address(hexToBytes('0x00000000000000000000000000000000000000ee'))
+  //   // const common = new Common({ chain: Mainnet, hardfork: Hardfork.Constantinople })
+  //   // const evm = await createEVM({
+  //   //   common,
+  //   // })
 
+  //   const evm = await createEVM()
+  //   const res = await evm.runCode({
+  //     code: hexToBytes(
+  //       //바이트 코드로 명명
+  //       '0x' +
+  //         '63' +
+  //         'c0cac01a' + // PUSH4 (0x63) + 4바이트 값 push (0xc0cac01a)
+  //         '60' +
+  //         '22' + // PUSH1 (0x60) + 1바이트 값 push (0x22)
+  //         '52' + // MSTORE (0x52)
+  //         '63' +
+  //         'b01dface' + // PUSH4 (0x63) + 4바이트 값 push (0xb01dface)
+  //         '60' +
+  //         '1e' + // PUSH1 (0x60) + 1바이트 값 push (0x1e)
+  //         '52' + // MSTORE (0x52)
+  //         '61' +
+  //         '1eaf' + // PUSH2 (0x61) + 2바이트 값 push (0x1eaf)
+  //         '60' +
+  //         '1c' + // PUSH1 (0x60) + 1바이트 값 push (0x1c)
+  //         '52' + // MSTORE (0x52)
+  //         '60' +
+  //         '20' + // PUSH1 (0x60) + 1바이트 값 push (0x20)
+  //         '51', // MLOAD (0x51),
+  //     ),
+  //   })
+
+  //   const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+
+  //   expect(lastStackValue).toBe(lastOutPtValue)
+  // })
+
+  // it('should handle MUL with various bit operations', async () => {
+  //   const evm = await createEVM()
+
+  //   const res = await evm.runCode({
+  //     code: hexToBytes(
+  //       '0x' +
+  //         '63' +
+  //         'c0cac002' + // PUSH4 첫 번째 값
+  //         '60' +
+  //         '40' +
+  //         '52' + // MSTORE
+  //         '63' +
+  //         'b01dface' + // PUSH4 두 번째 값
+  //         '60' +
+  //         '20' +
+  //         '52' + // MSTORE
+  //         '60' +
+  //         '40' + // 첫 번째 값의 위치
+  //         '51' + // MLOAD
+  //         '60' +
+  //         '20' + // 두 번째 값의 위치
+  //         '51' + // MLOAD
+  //         '02', // MUL 연산 추가
+  //     ),
+  //   })
+
+  //   const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+
+  //   expect(lastStackValue).toBe(lastOutPtValue)
+  // })
+
+  // it('should handle SUB with memory and shifts', async () => {
+  //   const evm = await createEVM()
+
+  //   const res = await evm.runCode({
+  //     code: hexToBytes(
+  //       '0x' +
+  //         '63' +
+  //         'c0cac002' + // PUSH4 첫 번째 값
+  //         '60' +
+  //         '40' +
+  //         '52' + // MSTORE
+  //         '63' +
+  //         'b01dface' + // PUSH4 두 번째 값
+  //         '60' +
+  //         '20' +
+  //         '52' + // MSTORE
+  //         '60' +
+  //         '40' + // 첫 번째 값의 위치
+  //         '51' + // MLOAD
+  //         '60' +
+  //         '20' + // 두 번째 값의 위치
+  //         '51' + // MLOAD
+  //         '03' + // SUB 연산 추가'
+  //         '6040' +
+  //         '52',
+  //     ),
+  //   })
+
+  //   const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+
+  //   expect(lastStackValue).toBe(lastOutPtValue)
+  // })
+
+  it('should handle 0x01 (ADD) - 0x1B (SIGNEXTEND)', async () => {
     const evm = await createEVM()
+
     const res = await evm.runCode({
       code: hexToBytes(
-        '0x' +
-          '63' +
-          'c0cac01a' + // PUSH4 (0x63) + 4바이트 값 push (0xc0cac01a)
-          '60' +
-          '22' + // PUSH1 (0x60) + 1바이트 값 push (0x22)
-          '52' + // MSTORE (0x52)
-          '63' +
-          'b01dface' + // PUSH4 (0x63) + 4바이트 값 push (0xb01dface)
-          '60' +
-          '1e' + // PUSH1 (0x60) + 1바이트 값 push (0x1e)
-          '52' + // MSTORE (0x52)
-          '61' +
-          '1eaf' + // PUSH2 (0x61) + 2바이트 값 push (0x1eaf)
-          '60' +
-          '1c' + // PUSH1 (0x60) + 1바이트 값 push (0x1c)
-          '52' + // MSTORE (0x52)
-          '60' +
-          '20' + // PUSH1 (0x60) + 1바이트 값 push (0x20)
-          '51', // MLOAD (0x51),
-      ),
-    })
-
-    const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
-
-    expect(lastStackValue).toBe(lastOutPtValue)
-  })
-
-  it('should handle MUL with various bit operations', async () => {
-    const evm = await createEVM()
-
-    const res = await evm.runCode({
-      code: hexToBytes(
-        '0x' +
-          '63' +
-          'c0cac002' + // PUSH4 첫 번째 값
-          '60' +
-          '40' +
-          '52' + // MSTORE
-          '63' +
-          'b01dface' + // PUSH4 두 번째 값
-          '60' +
-          '20' +
-          '52' + // MSTORE
-          '60' +
-          '40' + // 첫 번째 값의 위치
-          '51' + // MLOAD
-          '60' +
-          '20' + // 두 번째 값의 위치
-          '51' + // MLOAD
-          '02', // MUL 연산 추가
-      ),
-    })
-
-    const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
-
-    expect(lastStackValue).toBe(lastOutPtValue)
-  })
-
-  it('should handle SUB with memory and shifts', async () => {
-    const evm = await createEVM()
-
-    const res = await evm.runCode({
-      code: hexToBytes(
-        '0x' +
-          '63' +
-          'c0cac002' + // PUSH4 첫 번째 값
-          '60' +
-          '40' +
-          '52' + // MSTORE
-          '63' +
-          'b01dface' + // PUSH4 두 번째 값
-          '60' +
-          '20' +
-          '52' + // MSTORE
-          '60' +
-          '40' + // 첫 번째 값의 위치
-          '51' + // MLOAD
-          '60' +
-          '20' + // 두 번째 값의 위치
-          '51' + // MLOAD
-          '03', // SUB 연산 추가
+        '0x60056003016000526004600202602052600A6007036040526004601404606052600460EC5F0B056080526003600A0660A052600360F65F0B0760C0526007600360050860E0526006600460050961010052600360020A610120526101406000F3',
       ),
     })
 

@@ -235,4 +235,12 @@ export const subcircuits = [
     Out_idx: [1, 32],
     In_idx: [33, 1],
   },
+  {
+    id: 29,
+    opcode: '35',
+    name: 'CALLDATALOAD',
+    Nwires: 0,
+    Out_idx: [1, 32],
+    In_idx: [33, 1],
+  },
 ]
