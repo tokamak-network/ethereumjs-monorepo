@@ -295,9 +295,13 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(val)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SIGNEXTEND', inPts)
-      runState.stackPt.push(outPts[0])
+      try {
+        const inPts = runState.stackPt.popN(2)
+        const outPts = runState.synthesizer.newPlacementArith('SIGNEXTEND', inPts)
+        runState.stackPt.push(outPts[0])
+      } catch (error) {
+        console.error('Error in SIGNEXTEND synthesizer:', error)
+      }
     },
   ],
   // 0x10 range - bit ops
@@ -527,7 +531,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       runState.stack.push(r)
 
-      // For Synthesizer //
+      // // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
       const outPts = runState.synthesizer.newPlacementArith('SAR', inPts)
       runState.stackPt.push(outPts[0])
@@ -960,9 +964,7 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x52,
     function (runState) {
-      console.log('**runState.stack : ', runState.stack)
       const [offset, word] = runState.stack.popN(2)
-      console.log('*runState.stack after : ', runState.stack)
       const buf = setLengthLeft(bigIntToBytes(word), 32)
       const offsetNum = Number(offset)
       runState.memory.write(offsetNum, 32, buf)
@@ -971,8 +973,6 @@ export const handlers: Map<number, OpHandler> = new Map([
       const truncSize = 32
       const dataPt = runState.stackPt.peek(2)[1]
       const memPt = runState.synthesizer.newPlacementMSTORE(truncSize, dataPt)
-      console.log('***ORIGINAL***')
-      console.log(runState.stackPt)
       if (truncSize < dataPt.actualSize) {
         // StackPt에서 dataPt를 변형을 추적 memPt로 교체해 줍니다.
         runState.stackPt.swap(1)
@@ -993,7 +993,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         if (newDataPt.value !== word) {
           console.log(`newDataPt.value !== word`)
           console.log(newDataPt.value, word)
-          console.log('runState.stackPt : ', runState.stackPt)
+          console.log('runState.stack : ', runState.stack)
           console.log('newDataPt : ', newDataPt)
         }
         throw new Error(`MSTORE: Data mismatch between stackPt and stack`)
@@ -1177,9 +1177,6 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState, common) {
       const numToPush = runState.opCode - 0x5f
 
-      console.log('*********')
-      console.log('numToPush', numToPush)
-
       if (
         runState.programCounter + numToPush > runState.code.length &&
         common.isActivatedEIP(3540)
@@ -1206,7 +1203,6 @@ export const handlers: Map<number, OpHandler> = new Map([
         const loaded = bytesToBigInt(
           runState.code.subarray(runState.programCounter, runState.programCounter + numToPush),
         )
-        console.log('loaded', loaded)
         runState.programCounter += numToPush
         runState.stack.push(loaded)
       }
@@ -1235,6 +1231,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       const stackPos = runState.opCode - 0x8f
       runState.stack.swap(stackPos)
+
+      // For Synthesizer //
+      runState.stackPt.swap(stackPos)
     },
   ],
   // 0xa0: LOG
