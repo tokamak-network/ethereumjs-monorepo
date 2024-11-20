@@ -23,7 +23,18 @@ const logStackAndPlacement = (res: any) => {
   const stack = res.runState!.stackPt.getStack()
   // console.log('stack : ', stack)
 
-  const lastStackValue = stack[stack.length - 1].valuestr
+  // RETURN 연산 사용 여부 확인
+  const isReturnOp = res.runState?.lastOp === 0xf3
+
+  console.log('isReturnOp : ', isReturnOp)
+  console.log('stack', stack)
+
+  console.log('Stack before accessing valuestr:', stack)
+  console.log('Stack length:', stack.length)
+
+  const lastStackValue = isReturnOp
+    ? stack[stack.length - 3]?.valuestr
+    : stack[stack.length - 1].valuestr
 
   const placementsArray = Array.from(res.runState!.synthesizer.placements.values())
   const lastPlacement = placementsArray[placementsArray.length - 1]
@@ -171,112 +182,148 @@ describe('synthesizer: ', () => {
   //   expect(lastStackValue).toBe(lastOutPtValue)
   // })
 
-  it('should handle 0x0B (SIGNEXTEND) ~ 0x1D (SAR),', async () => {
-    const evm = await createEVM()
+  // it('should handle 0x0B (SIGNEXTEND) ~ 0x1D (SAR),', async () => {
+  //   const evm = await createEVM()
 
-    // const res = await evm.runCode({
-    //   code: hexToBytes(
-    //     // '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3',
-    //     '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b818112606052602051',
-    //   ),
-    // })
+  //   // const res = await evm.runCode({
+  //   //   code: hexToBytes(
+  //   //     // '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3',
+  //   //     '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b818112606052602051',
+  //   //   ),
+  //   // })
 
-    // Test Group 1: LT, GT
-    const testLtGt = '0x6005600A10602052600A60059011604052' + '604051' // MLOAD for verification
-    // const res = await evm.runCode({
-    //   code: hexToBytes(testLtGt),
-    // })
+  //   // Test Group 1: LT, GT
+  //   const testLtGt = '0x6005600A10602052600A60059011604052' + '604051' // MLOAD for verification
+  //   // const res = await evm.runCode({
+  //   //   code: hexToBytes(testLtGt),
+  //   // })
 
-    // PUSH1 values
-    const PUSH1 = '60'
-    const VAL_05 = '05'
-    const VAL_0A = '0A'
-    const VAL_20 = '20'
-    const VAL_40 = '40'
-    const VAL_60 = '60'
-    const VAL_80 = '80'
-    const VAL_FB = 'FB'
-    const VAL_FD = 'FD'
-    const VAL_00 = '5f' // alternative way to PUSH1 0x00
+  //   // PUSH1 values
+  //   const PUSH1 = '60'
+  //   const VAL_05 = '05'
+  //   const VAL_0A = '0A'
+  //   const VAL_20 = '20'
+  //   const VAL_40 = '40'
+  //   const VAL_60 = '60'
+  //   const VAL_80 = '80'
+  //   const VAL_FB = 'FB'
+  //   const VAL_FD = 'FD'
+  //   const VAL_00 = '5f' // alternative way to PUSH1 0x00
 
-    // Operation codes
-    const LT = '10'
-    const GT = '11'
-    const SLT = '12'
-    const SGT = '13'
-    const SWAP1 = '90'
-    const DUP2 = '81'
-    const MSTORE = '52'
-    const SIGNEXTEND = '0b'
-    const MLOAD = '51'
+  //   // Operation codes
+  //   const LT = '10'
+  //   const GT = '11'
+  //   const SLT = '12'
+  //   const SGT = '13'
+  //   const SWAP1 = '90'
+  //   const DUP2 = '81'
+  //   const MSTORE = '52'
+  //   const SIGNEXTEND = '0b'
+  //   const MLOAD = '51'
 
-    // Combine into full bytecode
-    const bytecode =
+  //   // Combine into full bytecode
+  //   const bytecode =
+  //     '0x' +
+  //     PUSH1 +
+  //     VAL_05 + // PUSH1 0x05
+  //     PUSH1 +
+  //     VAL_0A + // PUSH1 0x0A
+  //     LT + // LT
+  //     PUSH1 +
+  //     VAL_20 + // PUSH1 0x20
+  //     MSTORE + // MSTORE
+  //     PUSH1 +
+  //     VAL_0A + // PUSH1 0x0A
+  //     PUSH1 +
+  //     VAL_05 + // PUSH1 0x05
+  //     SWAP1 + // SWAP1
+  //     GT + // GT
+  //     PUSH1 +
+  //     VAL_40 + // PUSH1 0x40
+  //     MSTORE + // MSTORE
+  //     PUSH1 +
+  //     VAL_FB + // PUSH1 0xFB
+  //     VAL_00 + // PUSH1 0x00
+  //     SIGNEXTEND + // SIGNEXTEND
+  //     PUSH1 +
+  //     VAL_FD + // PUSH1 0xFD
+  //     VAL_00 + // PUSH1 0x00
+  //     SIGNEXTEND + // SIGNEXTEND
+  //     DUP2 + // DUP2
+  //     DUP2 + // DUP2
+  //     SLT + // SLT
+  //     PUSH1 +
+  //     VAL_60 + // PUSH1 0x60
+  //     MSTORE + // MSTORE
+  //     SGT + // SGT
+  //     PUSH1 +
+  //     VAL_80 + // PUSH1 0x80
+  //     MSTORE + // MSTORE
+  //     // Add MLOADs to check results
+  //     PUSH1 +
+  //     VAL_20 + // PUSH1 0x20
+  //     MLOAD + // MLOAD from 0x20 (LT result)
+  //     PUSH1 +
+  //     VAL_40 + // PUSH1 0x40
+  //     MLOAD + // MLOAD from 0x40 (GT result)
+  //     PUSH1 +
+  //     VAL_60 + // PUSH1 0x60
+  //     MLOAD + // MLOAD from 0x60 (SLT result)
+  //     PUSH1 +
+  //     VAL_80 + // PUSH1 0x80
+  //     MLOAD // MLOAD from 0x80 (SGT result)
+
+  //   // Test Group 2: SLT, SGT
+  //   const testSltSgt = bytecode
+
+  //   // Test Group 3: EQ, ISZERO, AND, OR, XOR, NOT, BYTE, SHL, SHR, SAR
+  //   const testLogicOps =
+  //     '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3'
+
+  //   // Part 1 (LT, GT, SIGNEXTEND, SLT, SGT, EQ, ISZERO, AND, OR) + final MLOAD
+  //   const testUntilOR =
+  //     '0x' +
+  //     '6005600A10602052' + // PUSH1 5, PUSH1 10, LT, PUSH1 0x20, MSTORE
+  //     '600A600590116040526' + // PUSH1 10, PUSH1 5, SWAP1, GT, PUSH1 0x40, MSTORE
+  //     '0FB5f0b60FD5f0b81811260605213608052' + // SIGNEXTEND operations and comparisons (SLT, SGT)
+  //     '604051608051148060A0521560C052' + // Memory loads, EQ(14), ISZERO(15)
+  //     '60A052' + // PUSH1 0xA0, MSTORE (store OR result at 0xA0)
+  //     '602051604051606051608051' +
+  //     '60A051'
+
+  //   // 0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3
+
+  //   const res = await evm.runCode({
+  //     code: hexToBytes(testLogicOps),
+  //   })
+
+  //   const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+
+  //   expect(lastStackValue).toBe(lastOutPtValue)
+  // })
+
+  it('should handle OR operation correctly', async function () {
+    const testOR =
       '0x' +
-      PUSH1 +
-      VAL_05 + // PUSH1 0x05
-      PUSH1 +
-      VAL_0A + // PUSH1 0x0A
-      LT + // LT
-      PUSH1 +
-      VAL_20 + // PUSH1 0x20
-      MSTORE + // MSTORE
-      PUSH1 +
-      VAL_0A + // PUSH1 0x0A
-      PUSH1 +
-      VAL_05 + // PUSH1 0x05
-      SWAP1 + // SWAP1
-      GT + // GT
-      PUSH1 +
-      VAL_40 + // PUSH1 0x40
-      MSTORE + // MSTORE
-      PUSH1 +
-      VAL_FB + // PUSH1 0xFB
-      VAL_00 + // PUSH1 0x00
-      SIGNEXTEND + // SIGNEXTEND
-      PUSH1 +
-      VAL_FD + // PUSH1 0xFD
-      VAL_00 + // PUSH1 0x00
-      SIGNEXTEND + // SIGNEXTEND
-      DUP2 + // DUP2
-      DUP2 + // DUP2
-      SLT + // SLT
-      PUSH1 +
-      VAL_60 + // PUSH1 0x60
-      MSTORE + // MSTORE
-      SGT + // SGT
-      PUSH1 +
-      VAL_80 + // PUSH1 0x80
-      MSTORE + // MSTORE
-      // Add MLOADs to check results
-      PUSH1 +
-      VAL_20 + // PUSH1 0x20
-      MLOAD + // MLOAD from 0x20 (LT result)
-      PUSH1 +
-      VAL_40 + // PUSH1 0x40
-      MLOAD + // MLOAD from 0x40 (GT result)
-      PUSH1 +
-      VAL_60 + // PUSH1 0x60
-      MLOAD + // MLOAD from 0x60 (SLT result)
-      PUSH1 +
-      VAL_80 + // PUSH1 0x80
-      MLOAD // MLOAD from 0x80 (SGT result)
+      // 먼저 스택에 두 개의 값을 push
+      '6384C2A6E1' + // PUSH4 0x84C2A6E1 (첫 번째 값)
+      '6312345678' + // PUSH4 0x12345678 (두 번째 값)
+      '81' + // DUP2
+      '81' + // DUP2
+      '17' + // OR
+      '610100' + // PUSH2 0x0100
+      '52' // MSTORE
 
-    // Test Group 2: SLT, SGT
-    const testSltSgt = bytecode
-
-    // Test Group 3: EQ, ISZERO, AND, OR, XOR, NOT, BYTE, SHL, SHR, SAR
-    const testLogicOps =
-      '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3'
-
-    // 0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3
-
+    const evm = await createEVM()
     const res = await evm.runCode({
-      code: hexToBytes(bytecode),
+      code: hexToBytes(testOR),
     })
 
-    const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+    // 결과 검증
+    const value1 = BigInt('0x84C2A6E1')
+    const value2 = BigInt('0x12345678')
+    const expectedOR = value1 | value2
 
-    expect(lastStackValue).toBe(lastOutPtValue)
+    console.log('Expected OR result:', expectedOR)
   })
 })

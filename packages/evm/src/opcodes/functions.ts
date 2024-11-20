@@ -430,6 +430,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       const r = a | b
       runState.stack.push(r)
 
+      console.log('****OR START*****')
+      console.log('stack', runState.stack)
+      console.log('stackPt', runState.stackPt)
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
       const outPts = runState.synthesizer.newPlacementArith('OR', inPts)
@@ -1236,6 +1239,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       // For Synthesizer
+      // const value = runState.stack.peek(1)[0]
+      // const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, value)
+      // runState.stackPt.push(dataPt)
+
       const value = runState.stack.peek(1)[0]
       const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, value)
       runState.stackPt.push(dataPt)
@@ -1249,12 +1256,25 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x80,
     function (runState) {
+      console.log('****DUP START*****')
+      console.log('stack', runState.stack)
+
       const stackPos = runState.opCode - 0x7f
       runState.stack.dup(stackPos)
 
-      // For Synthesizer //
-      const dataPt = runState.stackPt.peek(stackPos)[0]
-      runState.stackPt.push(dataPt)
+      console.log('After DUP1:')
+      console.log('stack', runState.stack)
+
+      console.log('****SYNTHESIZER*****')
+      console.log('stackPt', runState.stackPt)
+      // For Synthesizer
+      // For Synthesizer
+      // const dataPt = runState.stackPt.peek(stackPos)[0]
+      // console.log('stackPos', stackPos)
+      // console.log('dataPt', dataPt)
+      // const newDataPt = { ...dataPt } // 새로운 객체로 복사
+      // runState.stackPt.push(newDataPt)
+      runState.stackPt.dup(stackPos)
     },
   ],
   // 0x90: SWAP

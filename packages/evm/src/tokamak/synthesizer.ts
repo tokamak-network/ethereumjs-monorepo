@@ -735,8 +735,12 @@ export class Synthesizer {
           throw new Error(`OR takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
 
+        console.log('****OR*****')
+        console.log(inPts[0].value, inPts[1].value)
+
         // 두 입력값에 대해 비트 OR 연산 수행
         const outValue = inPts[0].value | inPts[1].value
+        console.log('outValue', outValue)
         outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(name, inPts, outPts)
         break
