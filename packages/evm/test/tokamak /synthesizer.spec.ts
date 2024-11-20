@@ -17,11 +17,11 @@ const mapToStr = (map: Map<any, any>) => {
 }
 
 const logStackAndPlacement = (res: any) => {
-  console.log('\nStack-Placement Value Comparison Test')
+  // console.log('\nStack-Placement Value Comparison Test')
 
   // 마지막 stack 값 가져오기
   const stack = res.runState!.stackPt.getStack()
-  console.log('stack : ', stack)
+  // console.log('stack : ', stack)
 
   const lastStackValue = stack[stack.length - 1].valuestr
 
@@ -187,18 +187,92 @@ describe('synthesizer: ', () => {
     //   code: hexToBytes(testLtGt),
     // })
 
+    // PUSH1 values
+    const PUSH1 = '60'
+    const VAL_05 = '05'
+    const VAL_0A = '0A'
+    const VAL_20 = '20'
+    const VAL_40 = '40'
+    const VAL_60 = '60'
+    const VAL_80 = '80'
+    const VAL_FB = 'FB'
+    const VAL_FD = 'FD'
+    const VAL_00 = '5f' // alternative way to PUSH1 0x00
+
+    // Operation codes
+    const LT = '10'
+    const GT = '11'
+    const SLT = '12'
+    const SGT = '13'
+    const SWAP1 = '90'
+    const DUP2 = '81'
+    const MSTORE = '52'
+    const SIGNEXTEND = '0b'
+    const MLOAD = '51'
+
+    // Combine into full bytecode
+    const bytecode =
+      '0x' +
+      PUSH1 +
+      VAL_05 + // PUSH1 0x05
+      PUSH1 +
+      VAL_0A + // PUSH1 0x0A
+      LT + // LT
+      PUSH1 +
+      VAL_20 + // PUSH1 0x20
+      MSTORE + // MSTORE
+      PUSH1 +
+      VAL_0A + // PUSH1 0x0A
+      PUSH1 +
+      VAL_05 + // PUSH1 0x05
+      SWAP1 + // SWAP1
+      GT + // GT
+      PUSH1 +
+      VAL_40 + // PUSH1 0x40
+      MSTORE + // MSTORE
+      PUSH1 +
+      VAL_FB + // PUSH1 0xFB
+      VAL_00 + // PUSH1 0x00
+      SIGNEXTEND + // SIGNEXTEND
+      PUSH1 +
+      VAL_FD + // PUSH1 0xFD
+      VAL_00 + // PUSH1 0x00
+      SIGNEXTEND + // SIGNEXTEND
+      DUP2 + // DUP2
+      DUP2 + // DUP2
+      SLT + // SLT
+      PUSH1 +
+      VAL_60 + // PUSH1 0x60
+      MSTORE + // MSTORE
+      SGT + // SGT
+      PUSH1 +
+      VAL_80 + // PUSH1 0x80
+      MSTORE + // MSTORE
+      // Add MLOADs to check results
+      PUSH1 +
+      VAL_20 + // PUSH1 0x20
+      MLOAD + // MLOAD from 0x20 (LT result)
+      PUSH1 +
+      VAL_40 + // PUSH1 0x40
+      MLOAD + // MLOAD from 0x40 (GT result)
+      PUSH1 +
+      VAL_60 + // PUSH1 0x60
+      MLOAD + // MLOAD from 0x60 (SLT result)
+      PUSH1 +
+      VAL_80 + // PUSH1 0x80
+      MLOAD // MLOAD from 0x80 (SGT result)
+
     // Test Group 2: SLT, SGT
-    const testSltSgt =
-      '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052' + '602051' // MLOAD for verification
+    const testSltSgt = bytecode
 
     // Test Group 3: EQ, ISZERO, AND, OR, XOR, NOT, BYTE, SHL, SHR, SAR
     const testLogicOps =
       '0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3'
 
-    // d0x6005600a10602052600a6005901160405260fb5f0b60fd5f0b81811260605213608052604051608051148060a0521560c0526384c2a6e1631234567881811660e05281811761010052188061012052198061014052601e1a806101605260041b806101805260041c6101a052610180515f0b60041d6101c0526101c06020f3
+    // 0x6005600A10602052600A6005901160405260FB5f0b60FD5f0b81811260605213608052604051608051148060A0521560C0526384C2A6E1631234567881811660E05281811761010052188061012052198061014052601E1a806101605260041b806101805260041c6101A052610180515f0b60041d6101C0526101C06020f3
 
     const res = await evm.runCode({
-      code: hexToBytes(testSltSgt),
+      code: hexToBytes(bytecode),
     })
 
     const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)

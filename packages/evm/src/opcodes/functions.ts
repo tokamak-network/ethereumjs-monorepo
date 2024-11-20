@@ -281,8 +281,15 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x0b,
     function (runState) {
+      console.log('****START****')
+      console.log(runState.stack)
+      console.log(runState.stackPt)
       /* eslint-disable-next-line prefer-const */
       let [k, val] = runState.stack.popN(2)
+      console.log('AFTER POPN')
+      console.log(runState.stack)
+      console.log(runState.stackPt)
+
       if (k < BIGINT_31) {
         const signBit = k * BIGINT_8 + BIGINT_7
         const mask = (BIGINT_1 << signBit) - BIGINT_1
@@ -296,11 +303,16 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       try {
+        console.log('****SYNTHESIZER****')
+        console.log(runState.stack)
+        console.log(runState.stackPt)
         const inPts = runState.stackPt.popN(2)
         const outPts = runState.synthesizer.newPlacementArith('SIGNEXTEND', inPts)
         runState.stackPt.push(outPts[0])
       } catch (error) {
-        console.error('Error in SIGNEXTEND synthesizer:', error)
+        console.log('Error in SIGNEXTEND synthesizer:', error)
+        console.log('stack', runState.stack)
+        console.log('stackPt', runState.stackPt)
       }
     },
   ],
@@ -342,9 +354,16 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
+      // try {
       const inPts = runState.stackPt.popN(2)
+
       const outPts = runState.synthesizer.newPlacementArith('SLT', inPts)
       runState.stackPt.push(outPts[0])
+
+      // } catch (error) {
+      //   console.error('Error in SLT synthesizer:', error)
+      //   console.log('stackPt', runState.stackPt)
+      // }
     },
   ],
   // 0x13: SGT
@@ -1169,12 +1188,21 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x5f,
     function (runState) {
       runState.stack.push(BIGINT_0)
+
+      // For Synthesizer //
+      // const value = runState.stack.peek(1)[0]
+      const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, BIGINT_0)
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x60: PUSH
   [
     0x60,
     function (runState, common) {
+      console.log('Before PUSH1:')
+      console.log('stack:', runState.stack)
+      console.log('stackPt:', runState.stackPt)
+
       const numToPush = runState.opCode - 0x5f
 
       if (
@@ -1209,12 +1237,12 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer
       const value = runState.stack.peek(1)[0]
-      const dataPt = runState.synthesizer.newPlacementPUSH(
-        numToPush,
-        runState.programCounterPrev,
-        value,
-      )
+      const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, value)
       runState.stackPt.push(dataPt)
+
+      console.log('After PUSH1:')
+      console.log('stack:', runState.stack)
+      console.log('stackPt:', runState.stackPt)
     },
   ],
   // 0x80: DUP
@@ -1223,6 +1251,10 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       const stackPos = runState.opCode - 0x7f
       runState.stack.dup(stackPos)
+
+      // For Synthesizer //
+      const dataPt = runState.stackPt.peek(stackPos)[0]
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x90: SWAP

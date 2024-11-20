@@ -152,7 +152,7 @@ export class Synthesizer {
    * @param {DataPt[]} outPts - 출력 데이터 포인트 배열.
    * @returns {void}
    */
-  public newPlacementPUSH(numToPush: number, programCounter: number, value: bigint): DataPt {
+  public newPlacementPUSH(programCounter: number, value: bigint): DataPt {
     const pointerIn: DataPt = this.newDataPt('code', programCounter + 1, value)
 
     // 기존 output list에 이어서 추가
@@ -512,6 +512,7 @@ export class Synthesizer {
          * @question (Ale)
          *
          * shift 수가 256비트를 초과하면 에러 처리를 해야되는지 비트 사이즈에 맞게 밸류 조정을 해야 하는지?
+         * @answer EVM와 같은 방식으로 처리하면 됨
          */
         if (shift >= 256n) {
           // 256비트 이상 시프트하면 0이 됨
@@ -687,6 +688,8 @@ export class Synthesizer {
           throw new Error(`SLT takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
 
+        console.log('GOGO?')
+
         // 두 입력값을 부호 있는 정수로 변환하여 비교
         const a = convertToSigned(inPts[0].value)
         const b = convertToSigned(inPts[1].value)
@@ -756,12 +759,6 @@ export class Synthesizer {
         throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
     }
 
-    /**
-     * @todo
-     *
-     * outPt 리턴을 여기서 해야될 필요?
-     * switch statement 안에서 해야될 것처럼 보임
-     */
     return outPts
   }
 
