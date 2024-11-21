@@ -658,7 +658,6 @@ export class Synthesizer {
         let outValue: bigint
         if (k > 30n) {
           // k가 30보다 크면 (31바이트 이상을 가리키면) 입력값을 그대로 반환
-          // 이는 EVM이 256비트(32바이트)를 사용하기 때문
           outValue = x
         } else {
           // k번째 바이트의 최상위 비트 위치 계산
@@ -668,11 +667,11 @@ export class Synthesizer {
 
           if (signBit === 1n) {
             // 부호 비트가 1이면 (음수), 상위 비트들을 1로 채움
-            const mask = ((1n << 256n) - 1n) << bitPosition
+            const mask = ((1n << (256n - bitPosition)) - 1n) << bitPosition
             outValue = x | mask
           } else {
             // 부호 비트가 0이면 (양수), 상위 비트들을 0으로 채움
-            const mask = (1n << bitPosition) - 1n
+            const mask = (1n << (bitPosition + 1n)) - 1n
             outValue = x & mask
           }
         }

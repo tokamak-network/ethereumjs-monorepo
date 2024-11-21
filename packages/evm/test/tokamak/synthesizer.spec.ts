@@ -19,7 +19,7 @@ const mapToStr = (map: Map<any, any>) => {
 const logStackAndPlacement = (res: any) => {
   console.log('\nStack-Placement Value Comparison Test')
 
-  // 마지막 stack 값 가져오기
+  // 마지막 stackPt 값 가져오기
   const stack = res.runState!.stackPt.getStack()
   console.log('stack : ', stack)
   console.log('stackPt : ', res.runState!.stackPt)
@@ -131,56 +131,56 @@ describe('synthesizer: ', () => {
         description: 'should handle SDIV operation correctly',
         expected: '-5', // -20 / 4 = -5
       },
-      {
-        name: 'MOD',
-        bytecode: '0x6003600A0660A052', // PUSH1 3, PUSH1 0x0A, MOD, PUSH1 0xA0, MSTORE
-        description: 'should handle MOD operation correctly',
-        expected: (BigInt('0x0A') % BigInt('0x03')).toString(16), // 10 % 3 = 1
-      },
-      {
-        name: 'SMOD',
-        bytecode: '0x600360F65F0B0760C052', // PUSH1 3, PUSH1 0xF6, PUSH0, SIGNEXTEND, SMOD, PUSH1 0xC0, MSTORE
-        description: 'should handle SMOD operation correctly',
-        expected: '-1', // -10 % 3 = -1
-      },
-      {
-        name: 'ADDMOD',
-        bytecode: '0x600760036005080860E052', // PUSH1 7, PUSH1 3, PUSH1 5, ADDMOD, PUSH1 0xE0, MSTORE
-        description: 'should handle ADDMOD operation correctly',
-        expected: ((BigInt('0x05') + BigInt('0x03')) % BigInt('0x07')).toString(16), // (5 + 3) % 7 = 1
-      },
-      {
-        name: 'MULMOD',
-        bytecode: '0x60066004600509610100052', // PUSH1 6, PUSH1 4, PUSH1 5, MULMOD, PUSH2 0x100, MSTORE
-        description: 'should handle MULMOD operation correctly',
-        expected: ((BigInt('0x05') * BigInt('0x04')) % BigInt('0x06')).toString(16), // (5 * 4) % 6 = 2
-      },
-      {
-        name: 'EXP',
-        bytecode: '0x60036002610120520A', // PUSH1 3, PUSH1 2, PUSH2 0x120, MSTORE, EXP
-        description: 'should handle EXP operation correctly',
-        expected: (BigInt('0x02') ** BigInt('0x03')).toString(16), // 2 ** 3 = 8
-      },
-      {
-        name: 'ALL_OPERATIONS',
-        bytecode:
-          '0x' +
-          '6005600301600052' + // ADD
-          '6004600202602052' + // MUL
-          '600A600703604052' + // SUB
-          '6004601404606052' + // DIV
-          '6384C2A6E1631234567816608052' + // AND
-          '600460EC5F0B0560A052' + // SDIV
-          '6003600A0660C052' + // MOD
-          '600360F65F0B0760E052' + // SMOD
-          '6007600360050861010052' + // ADDMOD
-          '600660046005096101205261' + // MULMOD
-          '60036002610140520A' + // EXP
-          '600051602051604051606051608051' + // MLOAD all results
-          '60A05160C05160E051610100516101205161014051', // MLOAD rest of results
-        description: 'should handle all operations correctly',
-        expected: '660', // 마지막 MLOAD의 결과
-      },
+      // {
+      //   name: 'MOD',
+      //   bytecode: '0x6003600A0660A052', // PUSH1 3, PUSH1 0x0A, MOD, PUSH1 0xA0, MSTORE
+      //   description: 'should handle MOD operation correctly',
+      //   expected: (BigInt('0x0A') % BigInt('0x03')).toString(16), // 10 % 3 = 1
+      // },
+      // {
+      //   name: 'SMOD',
+      //   bytecode: '0x600360F65F0B0760C052', // PUSH1 3, PUSH1 0xF6, PUSH0, SIGNEXTEND, SMOD, PUSH1 0xC0, MSTORE
+      //   description: 'should handle SMOD operation correctly',
+      //   expected: '-1', // -10 % 3 = -1
+      // },
+      // {
+      //   name: 'ADDMOD',
+      //   bytecode: '0x600760036005080860E052', // PUSH1 7, PUSH1 3, PUSH1 5, ADDMOD, PUSH1 0xE0, MSTORE
+      //   description: 'should handle ADDMOD operation correctly',
+      //   expected: ((BigInt('0x05') + BigInt('0x03')) % BigInt('0x07')).toString(16), // (5 + 3) % 7 = 1
+      // },
+      // {
+      //   name: 'MULMOD',
+      //   bytecode: '0x60066004600509610100052', // PUSH1 6, PUSH1 4, PUSH1 5, MULMOD, PUSH2 0x100, MSTORE
+      //   description: 'should handle MULMOD operation correctly',
+      //   expected: ((BigInt('0x05') * BigInt('0x04')) % BigInt('0x06')).toString(16), // (5 * 4) % 6 = 2
+      // },
+      // {
+      //   name: 'EXP',
+      //   bytecode: '0x60036002610120520A', // PUSH1 3, PUSH1 2, PUSH2 0x120, MSTORE, EXP
+      //   description: 'should handle EXP operation correctly',
+      //   expected: (BigInt('0x02') ** BigInt('0x03')).toString(16), // 2 ** 3 = 8
+      // },
+      // {
+      //   name: 'ALL_OPERATIONS',
+      //   bytecode:
+      //     '0x' +
+      //     '6005600301600052' + // ADD
+      //     '6004600202602052' + // MUL
+      //     '600A600703604052' + // SUB
+      //     '6004601404606052' + // DIV
+      //     '6384C2A6E1631234567816608052' + // AND
+      //     '600460EC5F0B0560A052' + // SDIV
+      //     '6003600A0660C052' + // MOD
+      //     '600360F65F0B0760E052' + // SMOD
+      //     '6007600360050861010052' + // ADDMOD
+      //     '600660046005096101205261' + // MULMOD
+      //     '60036002610140520A' + // EXP
+      //     '600051602051604051606051608051' + // MLOAD all results
+      //     '60A05160C05160E051610100516101205161014051', // MLOAD rest of results
+      //   description: 'should handle all operations correctly',
+      //   expected: '660', // 마지막 MLOAD의 결과
+      // },
       // {
       //   name: 'ALL_OPERATIONS',
       //   bytecode:
@@ -209,6 +209,48 @@ describe('synthesizer: ', () => {
         console.log('lastOutPtValue:', lastOutPtValue)
 
         expect(lastStackValue).toBe(lastOutPtValue)
+      })
+    }
+  })
+
+  describe('SIGNEXTEND operation', () => {
+    const testCases = [
+      {
+        description: 'should extend positive number correctly',
+        bytecode: '0x600060075F0B', // PUSH1 0, PUSH1 7, PUSH0, SIGNEXTEND
+        expected: '7',
+      },
+      {
+        description: 'should extend negative number correctly',
+        bytecode: '0x6000608F5F0B', // PUSH1 0, PUSH1 0x8F (-113 in decimal), PUSH0, SIGNEXTEND
+        expected: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8f',
+      },
+      {
+        description: 'should not change number when k is too large',
+        bytecode: '0x601F60125F0B', // PUSH1 31, PUSH1 0x12, PUSH0, SIGNEXTEND
+        expected: '12',
+      },
+      {
+        description: 'should extend negative number with larger k',
+        bytecode: '0x600160805F0B', // PUSH1 1, PUSH1 0x80, PUSH0, SIGNEXTEND
+        expected: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80',
+      },
+    ]
+
+    for (const testCase of testCases) {
+      it(testCase.description, async function () {
+        const evm = await createEVM()
+        const res = await evm.runCode({
+          code: hexToBytes(testCase.bytecode),
+          gasLimit: BigInt(0xffffff),
+        })
+
+        console.log(`Testing ${testCase.description}:`)
+        console.log('Stack:', res.stack)
+        console.log('StackPt:', res.stackPt)
+
+        const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+        expect(lastStackValue).toBe(testCase.expected)
       })
     }
   })

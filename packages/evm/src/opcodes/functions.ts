@@ -150,6 +150,8 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x05,
     function (runState) {
+      console.log('***SDIV GO***')
+      console.log('stack before: ', runState.stack)
       const [a, b] = runState.stack.popN(2)
       let r
       if (b === BIGINT_0) {
@@ -159,10 +161,18 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       runState.stack.push(r)
 
+      console.log('stack after: ', runState.stack)
+
       // For Synthesizer //
+      console.log('***SDIV GO***')
+      console.log('stackPt before: ', runState.stackPt)
       const inPts = runState.stackPt.popN(2)
       const outPts = runState.synthesizer.newPlacementArith('SDIV', inPts)
       runState.stackPt.push(outPts[0])
+      console.log('inPts : ', inPts)
+      console.log('outPts : ', outPts)
+      console.log('stackPt after: ', runState.stackPt)
+      console.log('***SDIV END***')
     },
   ],
   // 0x06: MOD
@@ -281,14 +291,8 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x0b,
     function (runState) {
-      console.log('****START****')
-      console.log(runState.stack)
-      console.log(runState.stackPt)
       /* eslint-disable-next-line prefer-const */
       let [k, val] = runState.stack.popN(2)
-      console.log('AFTER POPN')
-      console.log(runState.stack)
-      console.log(runState.stackPt)
 
       if (k < BIGINT_31) {
         const signBit = k * BIGINT_8 + BIGINT_7
@@ -303,9 +307,6 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       try {
-        console.log('****SYNTHESIZER****')
-        console.log(runState.stack)
-        console.log(runState.stackPt)
         const inPts = runState.stackPt.popN(2)
         const outPts = runState.synthesizer.newPlacementArith('SIGNEXTEND', inPts)
         runState.stackPt.push(outPts[0])
@@ -412,21 +413,14 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x16,
     function (runState) {
-      console.log('**AND GO**')
       const [a, b] = runState.stack.popN(2)
       const r = a & b
       runState.stack.push(r)
 
-      console.log('****AND START*****')
-      console.log('stack', runState.stack)
-      console.log('stackPt', runState.stackPt)
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
       const outPts = runState.synthesizer.newPlacementArith('AND', inPts)
       runState.stackPt.push(outPts[0])
-
-      console.log('****AND END*****')
-      console.log('stackPt', runState.stackPt)
     },
   ],
   // 0x17: OR
@@ -437,9 +431,6 @@ export const handlers: Map<number, OpHandler> = new Map([
       const r = a | b
       runState.stack.push(r)
 
-      console.log('****OR START*****')
-      console.log('stack', runState.stack)
-      console.log('stackPt', runState.stackPt)
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
       const outPts = runState.synthesizer.newPlacementArith('OR', inPts)
@@ -1024,6 +1015,8 @@ export const handlers: Map<number, OpHandler> = new Map([
           console.log(newDataPt.value, word)
           console.log('runState.stack : ', runState.stack)
           console.log('newDataPt : ', newDataPt)
+          console.log('stack', runState.stack)
+          console.log('stackPt : ', runState.stackPt)
         }
         throw new Error(`MSTORE: Data mismatch between stackPt and stack`)
       }
