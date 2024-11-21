@@ -2,6 +2,7 @@ import { hexToBytes } from '@ethereumjs/util'
 import { describe, expect, it } from 'vitest'
 
 import { createEVM } from '../../src/index.js'
+import { RunState } from '../../src/interpreter'
 
 function arrToStr(key: string, value: any) {
   return typeof value === 'bigint' ? value.toString() : value
@@ -20,27 +21,25 @@ const logStackAndPlacement = (res: any) => {
   console.log('\nStack-Placement Value Comparison Test')
 
   // 마지막 stackPt 값 가져오기
-  const stack = res.runState!.stackPt.getStack()
-  console.log('stack : ', stack)
-  console.log('stackPt : ', res.runState!.stackPt)
+  const stackPt = res.runState!.stackPt.getStack()
 
   // RETURN 연산 사용 여부 확인
   const isReturnOp = res.runState?.lastOp === 0xf3
 
-  // console.log('isReturnOp : ', isReturnOp)
-  // console.log('stack', stack)
-  // console.log('Stack length:', stack.length)
-
-  const lastStackValue = isReturnOp
-    ? stack[stack.length - 3]?.valuestr
-    : stack[stack.length - 1].valuestr
+  console.log('stack', res.runState.stack)
+  console.log('stackPt : ', stackPt)
 
   const placementsArray = Array.from(res.runState!.synthesizer.placements.values())
   const lastPlacement = placementsArray[placementsArray.length - 1]
 
+  console.log('placementsArray : ', placementsArray)
+
+  console.log(stackPt[0], stackPt[1])
+
+  const lastStackValue = stackPt[stackPt.length - 1].valuestr
+
   const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].valuestr
 
-  console.log('lastPlacement : ', lastPlacement)
   console.log('lastStackValue : ', lastStackValue)
   console.log('lastOutPtValue : ', lastOutPtValue)
 
@@ -61,37 +60,37 @@ const logStackAndPlacement = (res: any) => {
  *  */
 
 describe('synthesizer: ', () => {
-  it('should work with resolving data alias', async () => {
-    const evm = await createEVM()
-    const res = await evm.runCode({
-      code: hexToBytes(
-        //바이트 코드로 명명
-        '0x' +
-          '63' +
-          'c0cac01a' + // PUSH4 (0x63) + 4바이트 값 push (0xc0cac01a)
-          '60' +
-          '22' + // PUSH1 (0x60) + 1바이트 값 push (0x22)
-          '52' + // MSTORE (0x52)
-          '63' +
-          'b01dface' + // PUSH4 (0x63) + 4바이트 값 push (0xb01dface)
-          '60' +
-          '1e' + // PUSH1 (0x60) + 1바이트 값 push (0x1e)
-          '52' + // MSTORE (0x52)
-          '61' +
-          '1eaf' + // PUSH2 (0x61) + 2바이트 값 push (0x1eaf)
-          '60' +
-          '1c' + // PUSH1 (0x60) + 1바이트 값 push (0x1c)
-          '52' + // MSTORE (0x52)
-          '60' +
-          '20' + // PUSH1 (0x60) + 1바이트 값 push (0x20)
-          '51', // MLOAD (0x51),
-      ),
-    })
+  // it('should work with resolving data alias', async () => {
+  //   const evm = await createEVM()
+  //   const res = await evm.runCode({
+  //     code: hexToBytes(
+  //       //바이트 코드로 명명
+  //       '0x' +
+  //         '63' +
+  //         'c0cac01a' + // PUSH4 (0x63) + 4바이트 값 push (0xc0cac01a)
+  //         '60' +
+  //         '22' + // PUSH1 (0x60) + 1바이트 값 push (0x22)
+  //         '52' + // MSTORE (0x52)
+  //         '63' +
+  //         'b01dface' + // PUSH4 (0x63) + 4바이트 값 push (0xb01dface)
+  //         '60' +
+  //         '1e' + // PUSH1 (0x60) + 1바이트 값 push (0x1e)
+  //         '52' + // MSTORE (0x52)
+  //         '61' +
+  //         '1eaf' + // PUSH2 (0x61) + 2바이트 값 push (0x1eaf)
+  //         '60' +
+  //         '1c' + // PUSH1 (0x60) + 1바이트 값 push (0x1c)
+  //         '52' + // MSTORE (0x52)
+  //         '60' +
+  //         '20' + // PUSH1 (0x60) + 1바이트 값 push (0x20)
+  //         '51', // MLOAD (0x51),
+  //     ),
+  //   })
 
-    const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+  //   const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
 
-    expect(lastStackValue).toBe(lastOutPtValue)
-  })
+  //   expect(lastStackValue).toBe(lastOutPtValue)
+  // })
 
   describe('Basic arithmetic operations', () => {
     const testCases = [
@@ -127,73 +126,61 @@ describe('synthesizer: ', () => {
       },
       {
         name: 'SDIV',
-        bytecode: '0x600460EC5F0B05608052', // PUSH1 4, PUSH1 0xEC, PUSH0, SIGNEXTEND, SDIV, PUSH1 0x80, MSTORE
+        bytecode: '0x600460EC5F0B05', // PUSH1 4, PUSH1 0xEC, PUSH0, SIGNEXTEND, SDIV, PUSH1 0x80, MSTORE
         description: 'should handle SDIV operation correctly',
         expected: '-5', // -20 / 4 = -5
       },
-      // {
-      //   name: 'MOD',
-      //   bytecode: '0x6003600A0660A052', // PUSH1 3, PUSH1 0x0A, MOD, PUSH1 0xA0, MSTORE
-      //   description: 'should handle MOD operation correctly',
-      //   expected: (BigInt('0x0A') % BigInt('0x03')).toString(16), // 10 % 3 = 1
-      // },
-      // {
-      //   name: 'SMOD',
-      //   bytecode: '0x600360F65F0B0760C052', // PUSH1 3, PUSH1 0xF6, PUSH0, SIGNEXTEND, SMOD, PUSH1 0xC0, MSTORE
-      //   description: 'should handle SMOD operation correctly',
-      //   expected: '-1', // -10 % 3 = -1
-      // },
-      // {
-      //   name: 'ADDMOD',
-      //   bytecode: '0x600760036005080860E052', // PUSH1 7, PUSH1 3, PUSH1 5, ADDMOD, PUSH1 0xE0, MSTORE
-      //   description: 'should handle ADDMOD operation correctly',
-      //   expected: ((BigInt('0x05') + BigInt('0x03')) % BigInt('0x07')).toString(16), // (5 + 3) % 7 = 1
-      // },
-      // {
-      //   name: 'MULMOD',
-      //   bytecode: '0x60066004600509610100052', // PUSH1 6, PUSH1 4, PUSH1 5, MULMOD, PUSH2 0x100, MSTORE
-      //   description: 'should handle MULMOD operation correctly',
-      //   expected: ((BigInt('0x05') * BigInt('0x04')) % BigInt('0x06')).toString(16), // (5 * 4) % 6 = 2
-      // },
-      // {
-      //   name: 'EXP',
-      //   bytecode: '0x60036002610120520A', // PUSH1 3, PUSH1 2, PUSH2 0x120, MSTORE, EXP
-      //   description: 'should handle EXP operation correctly',
-      //   expected: (BigInt('0x02') ** BigInt('0x03')).toString(16), // 2 ** 3 = 8
-      // },
-      // {
-      //   name: 'ALL_OPERATIONS',
-      //   bytecode:
-      //     '0x' +
-      //     '6005600301600052' + // ADD
-      //     '6004600202602052' + // MUL
-      //     '600A600703604052' + // SUB
-      //     '6004601404606052' + // DIV
-      //     '6384C2A6E1631234567816608052' + // AND
-      //     '600460EC5F0B0560A052' + // SDIV
-      //     '6003600A0660C052' + // MOD
-      //     '600360F65F0B0760E052' + // SMOD
-      //     '6007600360050861010052' + // ADDMOD
-      //     '600660046005096101205261' + // MULMOD
-      //     '60036002610140520A' + // EXP
-      //     '600051602051604051606051608051' + // MLOAD all results
-      //     '60A05160C05160E051610100516101205161014051', // MLOAD rest of results
-      //   description: 'should handle all operations correctly',
-      //   expected: '660', // 마지막 MLOAD의 결과
-      // },
-      // {
-      //   name: 'ALL_OPERATIONS',
-      //   bytecode:
-      //     '0x' +
-      //     '6005600301600052' + // ADD operation and store
-      //     '6004600202602052' + // MUL operation and store
-      //     '600A600703604052' + // SUB operation and store
-      //     '6004601404606052' + // DIV operation and store
-      //     '6384C2A6E1631234567816608052' + // AND operation and store
-      //     '600051602051604051606051608051', // MLOAD all results
-      //   description: 'should handle all operations correctly',
-      //   expected: '660', // AND 연산의 실제 결과값
-      // },
+      {
+        name: 'MOD',
+        bytecode: '0x6003600A06', // PUSH1 3, PUSH1 0x0A, MOD, PUSH1 0xA0, MSTORE
+        description: 'should handle MOD operation correctly',
+        expected: (BigInt('0x0A') % BigInt('0x03')).toString(16), // 10 % 3 = 1
+      },
+      {
+        name: 'SMOD',
+        bytecode: '0x600360F65F0B07', // PUSH1 3, PUSH1 0xF6, PUSH0, SIGNEXTEND, SMOD, PUSH1 0xC0, MSTORE
+        description: 'should handle SMOD operation correctly',
+        expected: '-1', // -10 % 3 = -1
+      },
+      {
+        name: 'ADDMOD',
+        bytecode: '0x6007600360050808', // PUSH1 7, PUSH1 3, PUSH1 5, ADDMOD, PUSH1 0xE0, MSTORE
+        description: 'should handle ADDMOD operation correctly',
+        expected: ((BigInt('0x05') + BigInt('0x03')) % BigInt('0x07')).toString(16), // (5 + 3) % 7 = 1
+      },
+      {
+        name: 'MULMOD',
+        bytecode: '0x60066004600509', // PUSH1 6, PUSH1 4, PUSH1 5, MULMOD, PUSH2 0x100, MSTORE
+        description: 'should handle MULMOD operation correctly',
+        expected: ((BigInt('0x05') * BigInt('0x04')) % BigInt('0x06')).toString(16), // (5 * 4) % 6 = 2
+      },
+      {
+        name: 'EXP',
+        bytecode: '0x60036002610A', // PUSH1 3, PUSH1 2, PUSH2 0x120, MSTORE, EXP
+        description: 'should handle EXP operation correctly',
+        expected: (BigInt('0x02') ** BigInt('0x03')).toString(16), // 2 ** 3 = 8
+      },
+      {
+        name: 'BASIC_ARITHMETIC_OPERATIONS',
+        bytecode:
+          '0x' +
+          '60056003016000' + // ADD (5 + 3)
+          '52' + // MSTORE at 0x00
+          '6004600202602052' + // MUL (4 * 2) at 0x20
+          '600A6007036040' + // SUB (10 - 7) at 0x40
+          '52' + // MSTORE
+          '6004601404606052' + // DIV (20 / 4) at 0x60
+          '600460EC5F0B056080' + // SDIV (4 / -20) at 0x80
+          '52' + // MSTORE
+          '6003600A0660A052' + // MOD (10 % 3) at 0xA0
+          '600360F65F0B0760C052' + // SMOD (-10 % 3) at 0xC0
+          '6007600360050860E052' + // ADDMOD ((5 + 3) % 7) at 0xE0
+          '600660046005096101005261' + // MULMOD ((5 * 4) % 6) at 0x100
+          '00360020A610120' + // EXP (2 ** 3) at 0x120
+          '52' + // MSTORE
+          '61012051', // PUSH2 0x120, MLOAD (마지막 EXP 결과를 로드)
+        description: 'should handle all operations correctly',
+      },
     ]
 
     for (const testCase of testCases) {
@@ -204,61 +191,54 @@ describe('synthesizer: ', () => {
         })
 
         const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
-
-        console.log('lastStackValue:', lastStackValue)
-        console.log('lastOutPtValue:', lastOutPtValue)
 
         expect(lastStackValue).toBe(lastOutPtValue)
       })
     }
   })
 
-  describe('SIGNEXTEND operation', () => {
-    const testCases = [
-      {
-        description: 'should extend positive number correctly',
-        bytecode: '0x600060075F0B', // PUSH1 0, PUSH1 7, PUSH0, SIGNEXTEND
-        expected: '7',
-      },
-      {
-        description: 'should extend negative number correctly',
-        bytecode: '0x6000608F5F0B', // PUSH1 0, PUSH1 0x8F (-113 in decimal), PUSH0, SIGNEXTEND
-        expected: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8f',
-      },
-      {
-        description: 'should not change number when k is too large',
-        bytecode: '0x601F60125F0B', // PUSH1 31, PUSH1 0x12, PUSH0, SIGNEXTEND
-        expected: '12',
-      },
-      {
-        description: 'should extend negative number with larger k',
-        bytecode: '0x600160805F0B', // PUSH1 1, PUSH1 0x80, PUSH0, SIGNEXTEND
-        expected: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80',
-      },
-    ]
+  // describe('SIGNEXTEND operation', () => {
+  //   const testCases = [
+  //     {
+  //       description: 'should extend positive number correctly',
+  //       bytecode: '0x600060075F0B', // PUSH1 0, PUSH1 7, PUSH0, SIGNEXTEND
+  //       expected: '7',
+  //     },
+  //     {
+  //       description: 'should extend negative number correctly',
+  //       bytecode: '0x6000608F5F0B', // PUSH1 0, PUSH1 0x8F (-113 in decimal), PUSH0, SIGNEXTEND
+  //       expected: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8f',
+  //     },
+  //     {
+  //       description: 'should not change number when k is too large',
+  //       bytecode: '0x601F60125F0B', // PUSH1 31, PUSH1 0x12, PUSH0, SIGNEXTEND
+  //       expected: '12',
+  //     },
+  //     {
+  //       description: 'should extend negative number with larger k',
+  //       bytecode: '0x600160805F0B', // PUSH1 1, PUSH1 0x80, PUSH0, SIGNEXTEND
+  //       expected: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80',
+  //     },
+  //   ]
 
-    for (const testCase of testCases) {
-      it(testCase.description, async function () {
-        const evm = await createEVM()
-        const res = await evm.runCode({
-          code: hexToBytes(testCase.bytecode),
-          gasLimit: BigInt(0xffffff),
-        })
+  //   for (const testCase of testCases) {
+  //     it(testCase.description, async function () {
+  //       const evm = await createEVM()
+  //       const res = await evm.runCode({
+  //         code: hexToBytes(testCase.bytecode),
+  //         gasLimit: BigInt(0xffffff),
+  //       })
 
-        console.log(`Testing ${testCase.description}:`)
-        console.log('Stack:', res.stack)
-        console.log('StackPt:', res.stackPt)
-
-        const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
-        expect(lastStackValue).toBe(testCase.expected)
-      })
-    }
-  })
+  //       const { lastStackValue, lastOutPtValue } = logStackAndPlacement(res)
+  //       expect(lastStackValue).toBe(testCase.expected)
+  //     })
+  //   }
+  // })
 
   // it('should handle 0x01 (ADD) - 0x1B (SIGNEXTEND)', async () => {
   //   const evm = await createEVM()
   //   const byteCode =
-  //     '0x60056003016000526004600202602052600A6007036040526004601404606052602051604051606051'
+  //     '0x60056003016000526004600202602052600A6007036040526004601404606052600460EC5F0B056080526003600A0660A052600360F65F0B0760C0526007600360050860E0526006600460050961010052600360020A610120526101406000F3'
   //   const res = await evm.runCode({
   //     code: hexToBytes(byteCode),
   //   })

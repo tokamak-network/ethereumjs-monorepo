@@ -1,3 +1,4 @@
+//DEBUG=ethjs,evm:ops:* tsx logicalOperation.ts
 import { hexToBytes } from '@ethereumjs/util'
 
 import { createEVM } from '../src/constructors.js'
@@ -17,22 +18,26 @@ const main = async () => {
   //복합 MUL 연산 테스트
   console.log('\nTesting Complex MUL Operations:')
   const res = await evm.runCode({
-    code: hexToBytes(
-      '0x60056003016000526004600202602052600A6007036040526004601404606052602051604051606051',
-    ),
+    code: hexToBytes('0x600460EC5F0B056080528051'),
   })
 
   // 결과 출력
   console.log('\nStack-Placement Value Comparison Test')
   console.log('stack : ', res.runState?.stack)
-  const stackValue = res.runState?.stack.peek(1)[0]
+  console.log('stackPt : ', res.runState?.stackPt)
+  console.log('go')
+
+  console.log('goeee')
+  console.log(res.runState!.synthesizer)
 
   const placementsArray = Array.from(res.runState!.synthesizer.placements.values())
-  const lastPlacement = placementsArray[placementsArray.length - 1]
-  const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].valuestr
 
-  console.log(`Last Stack Value: ${stackValue?.toString(16)}`)
-  console.log(`Last Placement OutPt Value: ${lastOutPtValue}`)
+  console.log('placementsArray : ', placementsArray)
+
+  // const lastPlacement = placementsArray[placementsArray.length - 1]
+  // const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].valuestr
+
+  // console.log(`Last Placement OutPt Value: ${lastOutPtValue}`)
 
   //생성된 모든 서킷 출력
   console.log('\nGenerated Circuits:')
@@ -53,6 +58,7 @@ const main = async () => {
 
     index++
   }
+  console.log('last stackPt value : ')
 }
 
 void main().catch((error) => {

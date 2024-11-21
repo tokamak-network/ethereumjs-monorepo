@@ -150,8 +150,8 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x05,
     function (runState) {
-      console.log('***SDIV GO***')
-      console.log('stack before: ', runState.stack)
+      // console.log('***SDIV GO***')
+      // console.log('stack before: ', runState.stack)
       const [a, b] = runState.stack.popN(2)
       let r
       if (b === BIGINT_0) {
@@ -161,18 +161,18 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       runState.stack.push(r)
 
-      console.log('stack after: ', runState.stack)
+      // console.log('stack after: ', runState.stack)
 
-      // For Synthesizer //
-      console.log('***SDIV GO***')
-      console.log('stackPt before: ', runState.stackPt)
+      // // For Synthesizer //
+      // console.log('***SDIV GO***')
+      // console.log('stackPt before: ', runState.stackPt)
       const inPts = runState.stackPt.popN(2)
       const outPts = runState.synthesizer.newPlacementArith('SDIV', inPts)
       runState.stackPt.push(outPts[0])
-      console.log('inPts : ', inPts)
-      console.log('outPts : ', outPts)
-      console.log('stackPt after: ', runState.stackPt)
-      console.log('***SDIV END***')
+      // console.log('inPts : ', inPts)
+      // console.log('outPts : ', outPts)
+      // console.log('stackPt after: ', runState.stackPt)
+      // console.log('***SDIV END***')
     },
   ],
   // 0x06: MOD
@@ -1256,19 +1256,10 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x80,
     function (runState) {
-      console.log('****DUP START*****')
-      console.log('stack', runState.stack)
-
       const stackPos = runState.opCode - 0x7f
       runState.stack.dup(stackPos)
 
-      console.log('After DUP1:')
-      console.log('stack', runState.stack)
-
-      console.log('****SYNTHESIZER*****')
-      console.log('stackPt', runState.stackPt)
-      // For Synthesizer
-      // For Synthesizer
+      // // For Synthesizer
       // const dataPt = runState.stackPt.peek(stackPos)[0]
       // console.log('stackPos', stackPos)
       // console.log('dataPt', dataPt)
