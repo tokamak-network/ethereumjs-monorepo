@@ -18,20 +18,13 @@ const main = async () => {
   console.log('\nTesting Complex MUL Operations:')
   const res = await evm.runCode({
     code: hexToBytes(
-      '0x' +
-        // 먼저 스택에 두 개의 값을 push
-        '6384C2A6E1' + // PUSH4 0x84C2A6E1 (첫 번째 값)
-        '6312345678' + // PUSH4 0x12345678 (두 번째 값)
-        '81' + // DUP2
-        '81' + // DUP2
-        '17' + // OR
-        '610100' + // PUSH2 0x0100
-        '52', // MSTORE
+      '0x60056003016000526004600202602052600A6007036040526004601404606052602051604051606051',
     ),
   })
 
   // 결과 출력
   console.log('\nStack-Placement Value Comparison Test')
+  console.log('stack : ', res.runState?.stack)
   const stackValue = res.runState?.stack.peek(1)[0]
 
   const placementsArray = Array.from(res.runState!.synthesizer.placements.values())

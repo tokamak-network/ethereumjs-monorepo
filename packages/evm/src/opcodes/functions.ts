@@ -412,14 +412,21 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x16,
     function (runState) {
+      console.log('**AND GO**')
       const [a, b] = runState.stack.popN(2)
       const r = a & b
       runState.stack.push(r)
 
+      console.log('****AND START*****')
+      console.log('stack', runState.stack)
+      console.log('stackPt', runState.stackPt)
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
       const outPts = runState.synthesizer.newPlacementArith('AND', inPts)
       runState.stackPt.push(outPts[0])
+
+      console.log('****AND END*****')
+      console.log('stackPt', runState.stackPt)
     },
   ],
   // 0x17: OR
@@ -1202,9 +1209,9 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x60,
     function (runState, common) {
-      console.log('Before PUSH1:')
-      console.log('stack:', runState.stack)
-      console.log('stackPt:', runState.stackPt)
+      // console.log('Before PUSH1:')
+      // console.log('stack:', runState.stack)
+      // console.log('stackPt:', runState.stackPt)
 
       const numToPush = runState.opCode - 0x5f
 
@@ -1247,9 +1254,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, value)
       runState.stackPt.push(dataPt)
 
-      console.log('After PUSH1:')
-      console.log('stack:', runState.stack)
-      console.log('stackPt:', runState.stackPt)
+      // console.log('After PUSH1:')
+      // console.log('stack:', runState.stack)
+      // console.log('stackPt:', runState.stackPt)
     },
   ],
   // 0x80: DUP
