@@ -50,6 +50,7 @@ import {
 
 import type { RunState } from '../interpreter.js'
 import type { Common } from '@ethereumjs/common'
+import { MemoryPts } from '../tokamak/memoryPt.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -1194,7 +1195,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       // const value = runState.stack.peek(1)[0]
-      const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, BIGINT_0)
+      const dataPt = runState.synthesizer.newPlacementPUSH(runState.env.address.toString(), runState.programCounterPrev, BIGINT_0)
       runState.stackPt.push(dataPt)
     },
   ],
@@ -1244,7 +1245,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // runState.stackPt.push(dataPt)
 
       const value = runState.stack.peek(1)[0]
-      const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, value)
+      const dataPt = runState.synthesizer.newPlacementPUSH(runState.env.address.toString(), runState.programCounterPrev, value)
       runState.stackPt.push(dataPt)
 
       // console.log('After PUSH1:')
@@ -1738,6 +1739,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const ret = await runState.interpreter.call(gasLimit, toAddress, value, data)
       // Write return data to memory
+      // Synthesizer를 위해 writeCallOutput을 수정하였음
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1766,6 +1768,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const ret = await runState.interpreter.callCode(gasLimit, toAddress, value, data)
       // Write return data to memory
+      // Synthesizer를 위해 writeCallOutput을 수정하였음
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1789,6 +1792,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data)
       // Write return data to memory
+      // Synthesizer를 위해 writeCallOutput을 수정하였음
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1887,6 +1891,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data)
       // Write return data to memory
+      // Synthesizer를 위해 writeCallOutput을 수정하였음
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1930,10 +1935,14 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       const [offset, length] = runState.stack.popN(2)
       let returnData = new Uint8Array(0)
+      let returnMemoryPts: MemoryPts = []
       if (length !== BIGINT_0) {
         returnData = runState.memory.read(Number(offset), Number(length))
+        // For Synthesizer
+        returnMemoryPts = runState.memoryPt.return(Number(offset), Number(length))
       }
 
+      /*
       // For Synthesizer //
       const [offsetPt, lengthPt] = runState.stackPt.popN(2)
       const offsetNum = Number(offsetPt.value)
@@ -1945,8 +1954,10 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.synthesizer.newPlacementRETURNs('RETURN', dataAliasInfos)
       }
       ////
+      */
 
       runState.interpreter.finish(returnData)
+      runState.interpreter.finishPt(returnMemoryPts)
     },
   ],
   // 0xfd: REVERT
