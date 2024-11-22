@@ -453,27 +453,25 @@ export class Synthesizer {
           throw new Error(`EXP takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
 
-        const base = inPts[0].value
-        const exponent = inPts[1].value
+        // const base = inPts[0].value
+        // const exponent = inPts[1].value
 
-        // console.log('go')
-        // this._applyEXP(inPts)
+        // // 특수 케이스 처리
+        // let outValue: bigint
+        // if (exponent === 0n) {
+        //   outValue = 1n
+        // } else if (base === 0n) {
+        //   outValue = 0n
+        // } else {
+        //   // 모든 연산은 2^256 모듈러 내에서 수행됨
+        //   // EVM의 256비트 연산 범위를 벗어나지 않도록 함
+        //   const modulus = 1n << 256n
+        //   outValue = powMod(base, exponent, modulus)
+        // }
 
-        // 특수 케이스 처리
-        let outValue: bigint
-        if (exponent === 0n) {
-          outValue = 1n
-        } else if (base === 0n) {
-          outValue = 0n
-        } else {
-          // 모든 연산은 2^256 모듈러 내에서 수행됨
-          // EVM의 256비트 연산 범위를 벗어나지 않도록 함
-          const modulus = 1n << 256n
-          outValue = powMod(base, exponent, modulus)
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
-        this._place(name, inPts, outPts)
+        // outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        // this._place(name, inPts, outPts)
+        this._convertEXPtoMUL(inPts)
         break
       }
 
@@ -907,32 +905,27 @@ export class Synthesizer {
     }
   }
 
-  private _applyEXP(inPts: DataPt[]) {
-    const base = inPts[0].value
+  private _convertEXPtoMUL(inPts: DataPt[]) {
     const exponent = inPts[1].value
 
     // 지수가 0이면 1을 반환
-    // base.EQ(base)로 place
     if (exponent === 0n) {
       const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, 1n)]
-      this._place('EQ', [], outPts)
-      return
+      return this._place('EQ', inPts, outPts)
     }
 
     // 지수가 1이면 base를 그대로 반환
     // 그대로 * 1 -> MUL로 place
     if (exponent === 1n) {
-      const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, base)]
-      this._place('LOAD', [], outPts)
-      return
+      const outValue = inPts[0].value * inPts[1].value
+      const outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+      return this._place('MUL', inPts, outPts)
     }
 
     return this._expBySquaring(inPts[0], exponent)
-    // const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, result.value)]
-    // this._place('MUL', [result], outPts)
   }
 
-  private _expBySquaring(base: DataPt, exponent: bigint): DataPt {
+  private _expBySquaring(base: DataPt, exponent: bigint) {
     let result = null
     let currentBase = base
     let currentExponent = exponent
@@ -940,9 +933,6 @@ export class Synthesizer {
     // 초기값 설정 (지수의 최하위 비트가 1이면 결과에 포함)
     if (currentExponent & 1n) {
       result = currentBase
-    } else {
-      result = this.newDataPt(this.placementIndex, 0, 1n)
-      this._place('LOAD', [], [result])
     }
 
     currentExponent = currentExponent >> 1n
@@ -950,24 +940,25 @@ export class Synthesizer {
     // 지수를 이진수로 보고 각 비트를 처리
     while (currentExponent > 0n) {
       // 제곱 계산
-      currentBase = this._multiplyDataPts(currentBase, currentBase)
+      const squaredValue = currentBase.value * currentBase.value
+      const squaredPt = this.newDataPt(this.placementIndex, 0, squaredValue)
+      this._place('MUL', [currentBase, currentBase], [squaredPt])
+      currentBase = squaredPt
 
       // 현재 비트가 1이면 결과에 곱함
       if (currentExponent & 1n) {
-        result = this._multiplyDataPts(result, currentBase)
+        if (result === null) {
+          result = currentBase
+        } else {
+          const mulValue = result.value * currentBase.value
+          const mulPt = this.newDataPt(this.placementIndex, 0, mulValue)
+          this._place('MUL', [result, currentBase], [mulPt])
+          result = mulPt
+        }
       }
 
       currentExponent = currentExponent >> 1n
     }
-
-    return result
-  }
-
-  /**
-   * MUL * MUL -> Place 추가
-   */
-  private _multiplyDataPts(a: DataPt, b: DataPt): DataPt {
-    return this.newDataPt(this.placementIndex, 0, a.value * b.value)
   }
 
   private _place(name: string, inPts: DataPt[], outPts: DataPt[]) {

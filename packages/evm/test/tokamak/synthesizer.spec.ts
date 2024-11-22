@@ -150,7 +150,7 @@ describe('synthesizer: ', () => {
       // },
       {
         name: 'EXP',
-        bytecode: '0x60036002610A', // PUSH1 3, PUSH1 2, PUSH2 0x120, MSTORE, EXP
+        bytecode: '0x600360020a', // PUSH1 3, PUSH1 2, PUSH2 0x120, MSTORE, EXP
         description: 'should handle EXP operation correctly',
         expected: (BigInt('0x02') ** BigInt('0x03')).toString(16), // 2 ** 3 = 8
       },
