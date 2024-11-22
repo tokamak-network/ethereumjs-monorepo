@@ -31,6 +31,9 @@ export const subcircuits = [
     Out_idx: [1, 1],
     In_idx: [2, 2],
   },
+  /**
+   * @TODO DIV Input 3개로 변경될 예정
+   */
   {
     id: 4,
     opcode: '4',
