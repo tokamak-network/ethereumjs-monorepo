@@ -908,15 +908,16 @@ export class Synthesizer {
     const exponent = inPts[1].value
 
     // 지수가 0이면 1을 반환
+    // EQ 연산 사용
+    // DIV는 연산 사이즈가 확정적이지 않기 때문에 사용 X
     if (exponent === 0n) {
       const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, 1n)]
       return this._place('EQ', inPts, outPts)
     }
 
-    // 지수가 1이면 base를 그대로 반환
-    // 그대로 * 1 -> MUL로 place
+    // 지수가 1이면 base * 지수를 그대로 반환
     if (exponent === 1n) {
-      const outValue = inPts[0].value * inPts[1].value
+      const outValue = inPts[0].value * exponent
       const outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
       return this._place('MUL', inPts, outPts)
     }
