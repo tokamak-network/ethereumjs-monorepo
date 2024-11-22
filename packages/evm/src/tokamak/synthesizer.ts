@@ -1,5 +1,4 @@
 import { subcircuits } from './subcircuit_info.js'
-import { powMod } from './utils.js'
 
 import type { DataAliasInfos } from './memoryPt.js'
 

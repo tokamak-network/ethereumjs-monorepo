@@ -18,7 +18,7 @@ const main = async () => {
   //복합 MUL 연산 테스트
   console.log('\nTesting Complex MUL Operations:')
   const res = await evm.runCode({
-    code: hexToBytes('0x601060020a'),
+    code: hexToBytes('0x602060020a'),
   })
 
   // 결과 출력
