@@ -44,6 +44,7 @@ import {
   type EVMRunCodeOpts,
   type ExecResult,
 } from './types.js'
+import { Synthesizer } from './tokamak/synthesizer.js'
 
 import type { InterpreterOpts } from './interpreter.js'
 import type { Timer } from './logger.js'
@@ -51,7 +52,6 @@ import type { MessageWithTo } from './message.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/gas.js'
 import type { OpHandler, OpcodeList, OpcodeMap } from './opcodes/index.js'
 import type { CustomPrecompile, PrecompileFunc } from './precompiles/index.js'
-import type { SubcircuitId } from './tokamak/synthesizer.js'
 import type { Common, StateManagerInterface } from '@ethereumjs/common'
 
 const debug = debugDefault('evm:evm')
@@ -116,8 +116,6 @@ export class EVM implements EVMInterface {
 
   protected _opcodeMap!: OpcodeMap
 
-  protected _subcircuitsId!: SubcircuitId[]
-
   protected _precompiles!: Map<string, PrecompileFunc>
 
   protected readonly _optsCached: EVMOpts
@@ -147,6 +145,10 @@ export class EVM implements EVMInterface {
   protected readonly _emit: (topic: string, data: any) => Promise<void>
 
   private _bn254: EVMBN254Interface
+  // EVM에서 synthesizer를 생성하고, interpreter가 runState를 구성할 때 이를 상속받아 사용함.
+  // 결과적으로 CALL류 실행을 통해 하위 컨텍스트들이 구성될 때, 모든 컨텍스트에서 EVM에서 생성된 synthesizer가 공유됨.
+  // 이를 위해 interpreter의 constructor의 인자에 synthesizer를 추가하였음.
+  public synthesizer: Synthesizer
 
   /**
    *
@@ -243,6 +245,8 @@ export class EVM implements EVMInterface {
     // Additional window check is to prevent vite browser bundling (and potentially other) to break
     this.DEBUG =
       typeof window === 'undefined' ? (process?.env?.DEBUG?.includes('ethjs') ?? false) : false
+    
+    this.synthesizer = new Synthesizer()
   }
 
   /**
@@ -254,7 +258,6 @@ export class EVM implements EVMInterface {
     this._opcodes = data.opcodes
     this._dynamicGasHandlers = data.dynamicGasHandlers
     this._handlers = data.handlers
-    this._subcircuitsId = data.subcircuitsId
     this._opcodeMap = data.opcodeMap
     return data.opcodes
   }
@@ -769,6 +772,7 @@ export class EVM implements EVMInterface {
       message.gasLimit,
       this.journal,
       this.performanceLogger,
+      this.synthesizer,
       this._optsCached.profiler,
     )
     if (message.selfdestruct) {

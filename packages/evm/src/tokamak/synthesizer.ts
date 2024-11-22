@@ -145,15 +145,15 @@ export class Synthesizer {
   }
 
   /**
-   * 새로운 배치를 추가합니다.
+   * PUSH 명령어에 의한 새로운 LOAD 배치의 입출력 쌍을 추가합니다.
    *
-   * @param {string} name - 배치의 이름.
-   * @param {DataPt[]} inPts - 입력 데이터 포인트 배열.
-   * @param {DataPt[]} outPts - 출력 데이터 포인트 배열.
+   * @param {string} codeAddress - PUSH가 실행 된 코드의 address.
+   * @param {number} programCounter - PUSH 입력 인자의 program counter.
+   * @param {bigint} value - PUSH 입력 인자의 값.
    * @returns {void}
    */
-  public newPlacementPUSH(programCounter: number, value: bigint): DataPt {
-    const pointerIn: DataPt = this.newDataPt('code', programCounter + 1, value)
+  public newPlacementPUSH(codeAddress: string, programCounter: number, value: bigint): DataPt {
+    const pointerIn: DataPt = this.newDataPt(`code: ${codeAddress}`, programCounter + 1, value)
 
     // 기존 output list에 이어서 추가
     const outOffset = this.placements.get(0)!.outPts.length
@@ -228,8 +228,10 @@ export class Synthesizer {
     return this._resolveDataAlias(dataAliasInfos)
   }
 
+  
   /**
-   * 새로운 RETURN 배치를 추가합니다.
+   * @deprecated
+   * RETURN은 더이상 배치를 사용하지 않습니다.
    *
    * RETURN은 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 지정된 메모리 위치에서 데이터를 반환합니다.
    *
