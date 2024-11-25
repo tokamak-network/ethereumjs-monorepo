@@ -1,15 +1,13 @@
 // DEBUG=ethjs,evm:*,evm:*:* tsx callcodes.ts
 import { Common, Mainnet } from '@ethereumjs/common'
 import { SimpleStateManager } from '@ethereumjs/statemanager'
+import { Account, createAddressFromPrivateKey, hexToBytes } from '@ethereumjs/util'
 
+import { createEVM } from '../src/constructors.js'
 import { NobleBN254 } from '../src/precompiles/index.js'
 import { EVMMockBlockchain } from '../src/types.js'
 
-import { EVM } from '../src/index.js'
-
 import type { EVMOpts } from '../src/index.js'
-
-import { hexToBytes, Account, createAddressFromPrivateKey, randomBytes } from '@ethereumjs/util'
 
 const main = async () => {
   const opts = {} as EVMOpts
@@ -38,7 +36,7 @@ const main = async () => {
   // contract account의 코드 정의
   await opts.stateManager.putCode(address, callcode)
 
-  const evm = await new EVM(opts)
+  const evm = await createEVM(opts)
   const res = await evm.runCode({
     code: hexToBytes('0x6020602060006000737e5f4552091a69125d5dfcb7b8c2659029395bdf611388fa00'),
   })
