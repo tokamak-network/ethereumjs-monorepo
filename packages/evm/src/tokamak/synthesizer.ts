@@ -1,4 +1,5 @@
 import { subcircuits } from './subcircuit_info.js'
+import { powMod } from './utils.js'
 
 import type { DataAliasInfos } from './memoryPt.js'
 
@@ -452,25 +453,25 @@ export class Synthesizer {
           throw new Error(`EXP takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
 
-        // const base = inPts[0].value
-        // const exponent = inPts[1].value
+        const base = inPts[0].value
+        const exponent = inPts[1].value
 
-        // // 특수 케이스 처리
-        // let outValue: bigint
-        // if (exponent === 0n) {
-        //   outValue = 1n
-        // } else if (base === 0n) {
-        //   outValue = 0n
-        // } else {
-        //   // 모든 연산은 2^256 모듈러 내에서 수행됨
-        //   // EVM의 256비트 연산 범위를 벗어나지 않도록 함
-        //   const modulus = 1n << 256n
-        //   outValue = powMod(base, exponent, modulus)
-        // }
+        // 특수 케이스 처리
+        let outValue: bigint
+        if (exponent === 0n) {
+          outValue = 1n
+        } else if (base === 0n) {
+          outValue = 0n
+        } else {
+          // 모든 연산은 2^256 모듈러 내에서 수행됨
+          // EVM의 256비트 연산 범위를 벗어나지 않도록 함
+          const modulus = 1n << 256n
+          outValue = powMod(base, exponent, modulus)
+        }
 
-        // outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
-        // this._place(name, inPts, outPts)
-        this._convertEXPtoMUL(inPts)
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        this._place(name, inPts, outPts)
+        // this._convertEXPtoMUL(inPts)
         break
       }
 

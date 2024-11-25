@@ -608,7 +608,18 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x34,
     function (runState) {
-      runState.stack.push(runState.interpreter.getCallValue())
+      const value = runState.interpreter.getCallValue()
+      runState.stack.push(value)
+
+      // For Synthesizer //
+      const dataPt = {
+        source: 'callvalue',
+        sourceOffset: 0,
+        actualSize: 32,
+        value,
+        valuestr: value.toString(16),
+      }
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x35: CALLDATALOAD
