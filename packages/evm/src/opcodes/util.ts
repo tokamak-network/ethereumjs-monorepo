@@ -208,9 +208,9 @@ export function writeCallOutput(runState: RunState, outOffset: bigint, outLength
   const returnMemoryPts = runState.interpreter.getReturnMemoryPts()
   if (returnMemoryPts.length > 0) {
     //MemoryPts는 낮은 인덱스일수록 오래된 메모리 정보
-    returnMemoryPts.forEach((element) => {
+    for (const element of returnMemoryPts) {
       runState.memoryPt.write(element.memOffset, element.containerSize, element.dataPt)
-    })
+    }
   }
 }
 
