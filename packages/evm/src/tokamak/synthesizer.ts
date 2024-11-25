@@ -688,8 +688,6 @@ export class Synthesizer {
           throw new Error(`SLT takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
 
-        console.log('GOGO?')
-
         // 두 입력값을 부호 있는 정수로 변환하여 비교
         const a = convertToSigned(inPts[0].value)
         const b = convertToSigned(inPts[1].value)

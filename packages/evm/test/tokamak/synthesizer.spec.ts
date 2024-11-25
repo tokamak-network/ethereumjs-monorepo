@@ -337,7 +337,7 @@ describe('synthesizer: ', () => {
 
 /*** 6. Runtime code starts here ***/
 // fe 60 80 60 40 52 ...   // Start of actual contract code
-describe.only('Fibonacci Contract', () => {
+describe('Fibonacci Contract', () => {
   const testCases = [
     {
       name: 'FIBONACCI_CONTRACT',
