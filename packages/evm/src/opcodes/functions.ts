@@ -49,8 +49,8 @@ import {
 } from './util.js'
 
 import type { RunState } from '../interpreter.js'
+import type { MemoryPts } from '../tokamak/memoryPt.js'
 import type { Common } from '@ethereumjs/common'
-import { MemoryPts } from '../tokamak/memoryPt.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void

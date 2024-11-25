@@ -23,13 +23,14 @@ import { Memory } from './memory.js'
 import { Message } from './message.js'
 import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
-import { MemoryPts, MemoryPt } from './tokamak/memoryPt.js'
+import { MemoryPt } from './tokamak/memoryPt.js'
 import { StackPt } from './tokamak/stackPt.js'
-import { Synthesizer } from './tokamak/synthesizer.js'
 
 import type { EVM } from './evm.js'
 import type { Journal } from './journal.js'
 import type { AsyncOpHandler, Opcode, OpcodeMapEntry } from './opcodes/index.js'
+import type { MemoryPts } from './tokamak/memoryPt.js'
+import type { Synthesizer } from './tokamak/synthesizer.js'
 import type {
   Block,
   EOFEnv,
@@ -211,7 +212,7 @@ export class Interpreter {
       gasRefund: env.gasRefund,
       gasLeft,
       returnBytes: new Uint8Array(0),
-      synthesizer: synthesizer,
+      synthesizer,
       returnMemoryPts: [],
     }
     this.journal = journal

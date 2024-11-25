@@ -28,6 +28,7 @@ import { Message } from './message.js'
 import { getOpcodesForHF } from './opcodes/index.js'
 import { paramsEVM } from './params.js'
 import { NobleBLS, getActivePrecompiles, getPrecompileName } from './precompiles/index.js'
+import { Synthesizer } from './tokamak/synthesizer.js'
 import { TransientStorage } from './transientStorage.js'
 import {
   type Block,
@@ -44,7 +45,6 @@ import {
   type EVMRunCodeOpts,
   type ExecResult,
 } from './types.js'
-import { Synthesizer } from './tokamak/synthesizer.js'
 
 import type { InterpreterOpts } from './interpreter.js'
 import type { Timer } from './logger.js'
