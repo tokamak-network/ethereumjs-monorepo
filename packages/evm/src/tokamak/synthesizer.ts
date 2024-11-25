@@ -145,15 +145,15 @@ export class Synthesizer {
   }
 
   /**
-   * 새로운 배치를 추가합니다.
+   * PUSH 명령어에 의한 새로운 LOAD 배치의 입출력 쌍을 추가합니다.
    *
-   * @param {string} name - 배치의 이름.
-   * @param {DataPt[]} inPts - 입력 데이터 포인트 배열.
-   * @param {DataPt[]} outPts - 출력 데이터 포인트 배열.
+   * @param {string} codeAddress - PUSH가 실행 된 코드의 address.
+   * @param {number} programCounter - PUSH 입력 인자의 program counter.
+   * @param {bigint} value - PUSH 입력 인자의 값.
    * @returns {void}
    */
-  public newPlacementPUSH(programCounter: number, value: bigint): DataPt {
-    const pointerIn: DataPt = this.newDataPt('code', programCounter + 1, value)
+  public newPlacementPUSH(codeAddress: string, programCounter: number, value: bigint): DataPt {
+    const pointerIn: DataPt = this.newDataPt(`code: ${codeAddress}`, programCounter + 1, value)
 
     // 기존 output list에 이어서 추가
     const outOffset = this.placements.get(0)!.outPts.length
@@ -229,7 +229,8 @@ export class Synthesizer {
   }
 
   /**
-   * 새로운 RETURN 배치를 추가합니다.
+   * @deprecated
+   * RETURN은 더이상 배치를 사용하지 않습니다.
    *
    * RETURN은 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 지정된 메모리 위치에서 데이터를 반환합니다.
    *
@@ -471,7 +472,6 @@ export class Synthesizer {
 
         outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(name, inPts, outPts)
-        // this._convertEXPtoMUL(inPts)
         break
       }
 
@@ -688,6 +688,8 @@ export class Synthesizer {
           throw new Error(`SLT takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
 
+        console.log('GOGO?')
+
         // 두 입력값을 부호 있는 정수로 변환하여 비교
         const a = convertToSigned(inPts[0].value)
         const b = convertToSigned(inPts[1].value)
@@ -733,8 +735,12 @@ export class Synthesizer {
           throw new Error(`OR takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
 
+        console.log('****OR*****')
+        console.log(inPts[0].value, inPts[1].value)
+
         // 두 입력값에 대해 비트 OR 연산 수행
         const outValue = inPts[0].value | inPts[1].value
+        console.log('outValue', outValue)
         outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
         this._place(name, inPts, outPts)
         break
@@ -902,63 +908,6 @@ export class Synthesizer {
       outValue = inPts[0].value + inPts[1].value
       outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
       this._place(subcircuitName, inPts, outPts)
-    }
-  }
-
-  private _convertEXPtoMUL(inPts: DataPt[]) {
-    const exponent = inPts[1].value
-
-    // 지수가 0이면 1을 반환
-    // EQ 연산 사용
-    // DIV는 연산 사이즈가 확정적이지 않기 때문에 사용 X
-    if (exponent === 0n) {
-      const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, 1n)]
-      return this._place('EQ', inPts, outPts)
-    }
-
-    // 지수가 1이면 base * 지수를 그대로 반환
-    if (exponent === 1n) {
-      const outValue = inPts[0].value * exponent
-      const outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
-      return this._place('MUL', inPts, outPts)
-    }
-
-    return this._expBySquaring(inPts[0], exponent)
-  }
-
-  private _expBySquaring(base: DataPt, exponent: bigint) {
-    let result = null
-    let currentBase = base
-    let currentExponent = exponent
-
-    // 초기값 설정 (지수의 최하위 비트가 1이면 결과에 포함)
-    if (currentExponent & 1n) {
-      result = currentBase
-    }
-
-    currentExponent = currentExponent >> 1n
-
-    // 지수를 이진수로 보고 각 비트를 처리
-    while (currentExponent > 0n) {
-      // 제곱 계산
-      const squaredValue = currentBase.value * currentBase.value
-      const squaredPt = this.newDataPt(this.placementIndex, 0, squaredValue)
-      this._place('MUL', [currentBase, currentBase], [squaredPt])
-      currentBase = squaredPt
-
-      // 현재 비트가 1이면 결과에 곱함
-      if (currentExponent & 1n) {
-        if (result === null) {
-          result = currentBase
-        } else {
-          const mulValue = result.value * currentBase.value
-          const mulPt = this.newDataPt(this.placementIndex, 0, mulValue)
-          this._place('MUL', [result, currentBase], [mulPt])
-          result = mulPt
-        }
-      }
-
-      currentExponent = currentExponent >> 1n
     }
   }
 

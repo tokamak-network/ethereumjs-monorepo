@@ -203,6 +203,15 @@ export function writeCallOutput(runState: RunState, outOffset: bigint, outLength
     runState.memory.extend(memOffset, dataLength)
     runState.memory.write(memOffset, dataLength, data)
   }
+
+  // For synthesizer
+  const returnMemoryPts = runState.interpreter.getReturnMemoryPts()
+  if (returnMemoryPts.length > 0) {
+    //MemoryPts는 낮은 인덱스일수록 오래된 메모리 정보
+    returnMemoryPts.forEach((element) => {
+      runState.memoryPt.write(element.memOffset, element.containerSize, element.dataPt)
+    })
+  }
 }
 
 /**

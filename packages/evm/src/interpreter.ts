@@ -23,7 +23,7 @@ import { Memory } from './memory.js'
 import { Message } from './message.js'
 import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
-import { MemoryPt } from './tokamak/memoryPt.js'
+import { MemoryPts, MemoryPt } from './tokamak/memoryPt.js'
 import { StackPt } from './tokamak/stackPt.js'
 import { Synthesizer } from './tokamak/synthesizer.js'
 
@@ -66,6 +66,8 @@ export interface RunResult {
    * A map which tracks which addresses were created (used in EIP 6780)
    */
   createdAddresses?: Set<PrefixedHexString>
+
+  returnMemoryPts?: MemoryPts
 }
 
 export interface Env {
@@ -113,6 +115,7 @@ export interface RunState {
   gasLeft: bigint // Current gas left
   returnBytes: Uint8Array /* Current bytes in the return Uint8Array. Cleared each time a CALL/CREATE is made in the current frame. */
   synthesizer: Synthesizer
+  returnMemoryPts: MemoryPts
 }
 
 export interface InterpreterResult {
@@ -150,6 +153,7 @@ export class Interpreter {
   protected common: Common
   public _evm: EVM
   public journal: Journal
+  protected _synthesizer: Synthesizer
   _env: Env
 
   // Keep track of this Interpreter run result
@@ -171,6 +175,7 @@ export class Interpreter {
     gasLeft: bigint,
     journal: Journal,
     performanceLogs: EVMPerformanceLogger,
+    synthesizer: Synthesizer,
     profilerOpts?: EVMProfilerOpts,
   ) {
     this._evm = evm
@@ -206,7 +211,8 @@ export class Interpreter {
       gasRefund: env.gasRefund,
       gasLeft,
       returnBytes: new Uint8Array(0),
-      synthesizer: new Synthesizer(),
+      synthesizer: synthesizer,
+      returnMemoryPts: [],
     }
     this.journal = journal
     this._env = env
@@ -214,9 +220,11 @@ export class Interpreter {
       logs: [],
       returnValue: undefined,
       selfdestruct: new Set(),
+      returnMemoryPts: undefined,
     }
     this.profilerOpts = profilerOpts
     this.performanceLogger = performanceLogs
+    this._synthesizer = synthesizer
   }
 
   async run(code: Uint8Array, opts: InterpreterOpts = {}): Promise<InterpreterResult> {
@@ -730,6 +738,15 @@ export class Interpreter {
   }
 
   /**
+   * Set the memory pointers to the returning output data for the execution.
+   * @param returnMemoryPts - The MemoryPt contents for the output data to return
+   */
+  finishPt(returnMemoryPts: MemoryPts): void {
+    this._result.returnMemoryPts = returnMemoryPts
+    trap(ERROR.STOP)
+  }
+
+  /**
    * Set the returning output data for the execution. This will halt the
    * execution immediately and set the execution result to "reverted".
    * @param returnData - Output data to return
@@ -822,6 +839,15 @@ export class Interpreter {
    */
   getReturnData(): Uint8Array {
     return this._runState.returnBytes
+  }
+
+  /**
+   * Returns the data fragments aliased in the current return data buffer. This contains the source pointers to the return data
+   * from last executed call, callCode, callDelegate, callStatic or create.
+   * Note: create only fills the return data buffer in case of a failure.
+   */
+  getReturnMemoryPts(): MemoryPts {
+    return this._runState.returnMemoryPts
   }
 
   /**

@@ -30,7 +30,7 @@ import type { DataPt } from './synthesizer.js'
  */
 
 /**
- * 데이터 별칭 정보를 나타내는 배열입니다.
+ * 데이터 별칭 정보를 나타내는 구조체입니다.
  * @property {DataPt} dataPt - 원본 데이터 포인터
  * @property {number} shift - 비트 이동 수 (양수는 SHL, 음수는 SHR)
  * @property {string} masker - 유효한 바이트를 나타내는 16진수 문자열 (FF) 또는 유효하지 않은 바이트를 나타내는 00
@@ -38,12 +38,23 @@ import type { DataPt } from './synthesizer.js'
 export type DataAliasInfos = { dataPt: DataPt; shift: number; masker: string }[]
 
 /**
- * 메모리 정보를 나타내는 맵입니다.
+ * 메모리 정보를 나타내는 구조체입니다.
  * @property {number} memOffset - 메모리 오프셋
  * @property {number} containerSize - 컨테이너 크기
  * @property {DataPt} dataPt - 데이터 포인터
  */
-type TMemoryPt = Map<number, { memOffset: number; containerSize: number; dataPt: DataPt }>
+type MemoryPtEntry = { memOffset: number; containerSize: number; dataPt: DataPt }
+
+/**
+ * 메모리 정보의 배열입니다. 인덱스가 낮을수록 오래된 메모리 정보입니다.
+ */
+export type MemoryPts = MemoryPtEntry[]
+
+/**
+ * 메모리 정보의 맵입니다.
+ */
+type TMemoryPt = Map<number, MemoryPtEntry>
+
 /**
  * 데이터 조각 정보를 나타내는 맵입니다.
  * @property {Set<number>} originalRange - 원본 데이터 범위
@@ -134,6 +145,18 @@ export class MemoryPt {
     })
   }
 
+  return(offset: number, length: number): MemoryPts {
+    const dataFragments = this._viewMemoryConflict(offset, length)
+    const returnMemoryPts: MemoryPts = []
+    if (dataFragments.size > 0) {
+      const sortedKeys = Array.from(dataFragments.keys()).sort((a, b) => a - b)
+      sortedKeys.forEach((key) => {
+        returnMemoryPts.push(this._storePt.get(key)!)
+      })
+    }
+    return returnMemoryPts
+  }
+
   /**
      * read 는 MemoryPt조작에는 사용되지 않습니다. 대신 "getDataAlias"를 사용합니다.
      * Reads a slice of memory from `offset` till `offset + size` as a `Uint8Array`.
@@ -186,9 +209,9 @@ export class MemoryPt {
    * 메모리 영역에서 충돌 데이터 조각을 찾습니다.
    * @param offset - 읽기 시작할 메모리 위치
    * @param size - 읽을 바이트 수
-   * @returns {_DataFragments}
+   * @returns {DataFragments}
    */
-  private _viewMemoryConflict(offset: number, size: number) {
+  private _viewMemoryConflict(offset: number, size: number): _DataFragments {
     const dataFragments: _DataFragments = new Map()
     const endOffset = offset + size - 1
     const sortedTimeStamps = Array.from(this._storePt.keys()).sort((a, b) => a - b)
