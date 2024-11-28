@@ -1,17 +1,18 @@
 import { subcircuits } from './subcircuit_info.js'
 import { powMod } from './utils.js'
 
+import type { RunState } from '../interpreter.js'
 import type { DataAliasInfos } from './memoryPt.js'
 
 /**
  * @TODO
  * 
  * 1. loadSubcircuit을 분할
- *  -> 1-1. public load
- *    -> envirmental information, 최종 출력
- *    -> 
- *  -> 1-2. private load
- *    -> 바이트 코드 데이터, auxin 데이터
+ *    -> 1-1. public load
+ *      -> envirmental information, 최종 출력
+ *      -> 
+ *    -> 1-2. private load
+ *      -> 바이트 코드 데이터, auxin 데이터
  * 
  /
 
@@ -285,6 +286,33 @@ export class Synthesizer {
     return outPt
   }
 
+  public newPlacementCALLDATALOAD(runState: RunState, offset: bigint) {
+    console.log('****newPlacementCALLDATALOAD****')
+    const inPt = this.newDataPt('offset', 0, offset)
+
+    // Get calldata slice and convert to bigint
+    const calldata = runState.interpreter.getCallData()
+    const slice = calldata.slice(Number(offset), Number(offset) + 32)
+
+    // Convert Uint8Array to hex string
+    const hexString = Array.from(slice)
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+    const value = BigInt('0x' + hexString)
+
+    const outPt = this.newDataPt(this.placementIndex, Number(offset), value)
+
+    console.log('inputs', inPt)
+    console.log('outputs', outPt)
+
+    // Place the subcircuit
+    this._place('CALLDATALOAD', [inPt], [outPt])
+
+    console.log(this.placements)
+
+    return outPt
+  }
+
   /**
    * 새로운 산술 연산 배치를 추가합니다.
    *
@@ -551,6 +579,19 @@ export class Synthesizer {
         break
       }
 
+      //         LT 연산 후의 상태를 보니:
+      // EVM 상태:
+      // LT 실행 후 스택: ["0x0"]
+      // 4 < 36 비교의 결과가 0 (false)으로 나옴
+      // 이는 잘못된 결과로 보임. 4 < 36은 true여야 함
+      // 2. Circuit 상태:
+      // LT placement가 추가됨:
+      // }
+      // 문제점:
+      // LT 연산의 입력 순서가 잘못된 것 같습니다
+      // 4 < 36이 아닌 36 < 4로 비교된 것으로 보임
+      // 이것이 첫 번째로 발견된 불일치입니다
+      // 여기서부터 EVM의 실행과 Circuit의 상태가 달라지기 시작했습니다. 다음 스택 변화를 보여주세요.
       case 'LT': {
         const nInputs = 2
         if (inPts.length !== nInputs) {
@@ -771,7 +812,7 @@ export class Synthesizer {
    * 3개 원본 데이터의 출처는 각각 dataPt에 저장되어 있으며,
    * 3개의 원본 데이터를 각각 "shift"만큼 bit shift 한 뒤 (음의 값이라면 왼쪽으로, 양의 값이라면 오른쪽으로),
    * 그 결과를 각각 "masker"와 AND 해주고,
-   * 그 결과를 모두 OR 해주면, 그 결과는 변형 데이터와 같습니다.
+   * ��� 결과를 모두 OR 해주면, 그 결과는 변형 데이터와 같습니다.
    **/
 
   /**

@@ -328,7 +328,8 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
+      const [pt1, pt2] = runState.stackPt.popN(2)
+      const inPts = [pt2, pt1] // 순서를 바꿔서 전달
       const outPts = runState.synthesizer.newPlacementArith('LT', inPts)
       runState.stackPt.push(outPts[0])
     },
@@ -641,6 +642,13 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = r << (BIGINT_8 * BigInt(32 - loaded.length))
       }
       runState.stack.push(r)
+
+      // For Synthesizer //
+      /*eslint-disabled*/
+      runState.stackPt.pop()
+
+      const outPts = runState.synthesizer.newPlacementCALLDATALOAD(runState, pos)
+      runState.stackPt.push(outPts)
     },
   ],
   // 0x36: CALLDATASIZE
@@ -649,6 +657,15 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       const r = runState.interpreter.getCallDataSize()
       runState.stack.push(r)
+
+      // For Synthesizer //
+      runState.stackPt.push({
+        source: 'CALLDATASIZE',
+        sourceOffset: 0,
+        actualSize: 1,
+        value: BigInt(r),
+        valuestr: r.toString(16),
+      })
     },
   ],
   // 0x37: CALLDATACOPY
@@ -1117,6 +1134,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       runState.programCounter = destNum
+
+      // For Synthesizer //
+      runState.stackPt.pop()
     },
   ],
   // 0x57: JUMPI
@@ -1139,8 +1159,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       // For Synthesizer //
-      /*eslint-disable*/
-      const [destPt, condPt] = runState.stackPt.popN(2) // stackPt도 동일하게 pop
+      runState.stackPt.popN(2) // stackPt도 동일하게 pop
     },
   ],
   // 0x58: PC
