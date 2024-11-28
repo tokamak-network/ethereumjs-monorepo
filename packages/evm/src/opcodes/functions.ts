@@ -48,9 +48,12 @@ import {
   writeCallOutput,
 } from './util.js'
 
+import { copyMemoryRegion, MemoryPt, simulateMemoryPt } from '../tokamak/memoryPt.js'
+
 import type { RunState } from '../interpreter.js'
-import type { MemoryPts } from '../tokamak/memoryPt.js'
+import type { MemoryPtEntry, MemoryPts } from '../tokamak/memoryPt.js'
 import type { Common } from '@ethereumjs/common'
+import { DataPt } from '../tokamak/synthesizer.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -77,6 +80,7 @@ async function eip7702CodeCheck(runState: RunState, code: Uint8Array) {
   return code
 }
 
+
 // the opcode functions
 export const handlers: Map<number, OpHandler> = new Map([
   // 0x00: STOP
@@ -96,7 +100,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('ADD', inPts)
+      const outPts = runState.synthesizer.placeArith('ADD', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -110,7 +114,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('MUL', inPts)
+      const outPts = runState.synthesizer.placeArith('MUL', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -124,7 +128,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SUB', inPts)
+      const outPts = runState.synthesizer.placeArith('SUB', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -143,7 +147,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('DIV', inPts)
+      const outPts = runState.synthesizer.placeArith('DIV', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -168,7 +172,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // console.log('***SDIV GO***')
       // console.log('stackPt before: ', runState.stackPt)
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SDIV', inPts)
+      const outPts = runState.synthesizer.placeArith('SDIV', inPts)
       runState.stackPt.push(outPts[0])
       // console.log('inPts : ', inPts)
       // console.log('outPts : ', outPts)
@@ -191,7 +195,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('MOD', inPts)
+      const outPts = runState.synthesizer.placeArith('MOD', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -210,7 +214,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SMOD', inPts)
+      const outPts = runState.synthesizer.placeArith('SMOD', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -229,7 +233,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(3)
-      const outPts = runState.synthesizer.newPlacementArith('ADDMOD', inPts)
+      const outPts = runState.synthesizer.placeArith('ADDMOD', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -248,7 +252,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(3)
-      const outPts = runState.synthesizer.newPlacementArith('MULMOD', inPts)
+      const outPts = runState.synthesizer.placeArith('MULMOD', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -284,7 +288,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('EXP', inPts)
+      const outPts = runState.synthesizer.placeArith('EXP', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -309,7 +313,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For Synthesizer //
       try {
         const inPts = runState.stackPt.popN(2)
-        const outPts = runState.synthesizer.newPlacementArith('SIGNEXTEND', inPts)
+        const outPts = runState.synthesizer.placeArith('SIGNEXTEND', inPts)
         runState.stackPt.push(outPts[0])
       } catch (error) {
         console.log('Error in SIGNEXTEND synthesizer:', error)
@@ -329,7 +333,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('LT', inPts)
+      const outPts = runState.synthesizer.placeArith('LT', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -343,7 +347,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('GT', inPts)
+      const outPts = runState.synthesizer.placeArith('GT', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -359,7 +363,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // try {
       const inPts = runState.stackPt.popN(2)
 
-      const outPts = runState.synthesizer.newPlacementArith('SLT', inPts)
+      const outPts = runState.synthesizer.placeArith('SLT', inPts)
       runState.stackPt.push(outPts[0])
 
       // } catch (error) {
@@ -378,7 +382,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SGT', inPts)
+      const outPts = runState.synthesizer.placeArith('SGT', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -392,7 +396,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('EQ', inPts)
+      const outPts = runState.synthesizer.placeArith('EQ', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -406,7 +410,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(1)
-      const outPts = runState.synthesizer.newPlacementArith('ISZERO', inPts)
+      const outPts = runState.synthesizer.placeArith('ISZERO', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -420,7 +424,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('AND', inPts)
+      const outPts = runState.synthesizer.placeArith('AND', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -434,7 +438,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('OR', inPts)
+      const outPts = runState.synthesizer.placeArith('OR', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -448,7 +452,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('XOR', inPts)
+      const outPts = runState.synthesizer.placeArith('XOR', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -462,7 +466,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(1)
-      const outPts = runState.synthesizer.newPlacementArith('NOT', inPts)
+      const outPts = runState.synthesizer.placeArith('NOT', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -481,7 +485,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('BYTE', inPts)
+      const outPts = runState.synthesizer.placeArith('BYTE', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -500,7 +504,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SHL', inPts)
+      const outPts = runState.synthesizer.placeArith('SHL', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -519,7 +523,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SHR', inPts)
+      const outPts = runState.synthesizer.placeArith('SHR', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -554,7 +558,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.newPlacementArith('SAR', inPts)
+      const outPts = runState.synthesizer.placeArith('SAR', inPts)
       runState.stackPt.push(outPts[0])
     },
   ],
@@ -630,6 +634,41 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = r << (BIGINT_8 * BigInt(32 - loaded.length))
       }
       runState.stack.push(r)
+
+      // For synthesizer
+      const _pos = runState.stackPt.pop().value
+      if ( _pos != pos ){
+        throw new Error(`Synthesizer: CALLDATALOAD: Input data mismatch`)
+      }
+      
+      const calldataMemoryPts = runState.interpreter._env.callMemoryPts
+      let dataPtToLoad: DataPt
+      if (calldataMemoryPts.length > 0){
+        // Case: The calldata is originated from the parent context
+
+        // Simulate a MemoryPt for the calldata
+        const calldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
+        // View the memory and get the alias info
+        const calldataSize = runState.interpreter.getCallDataSize()
+        const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32)
+
+        if (dataAliasInfos.length > 0){
+          // Case: The data to load is originated from the parent context
+
+          dataPtToLoad = runState.synthesizer.placeMemoryToStack(dataAliasInfos) 
+        } else {
+          // Case: The data to load is not originated from the parent context => 0 is loaded from 'auxin'
+          dataPtToLoad = runState.synthesizer.loadAuxin(BIGINT_0)
+        }
+      } else {
+        // Case: The calldata is originated from Environmental Information
+        dataPtToLoad = runState.synthesizer.loadEnvInf('calldata', r, i)
+      }      
+      runState.stackPt.push(dataPtToLoad)
+
+      if ( runState.stack.peek(1)[0] != runState.stackPt.peek(1)[0].value ){
+        throw new Error(`Synthesizer: CALLDATALOAD: Output data mismatch`)
+      }
     },
   ],
   // 0x36: CALLDATASIZE
@@ -645,12 +684,46 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x37,
     function (runState) {
       const [memOffset, dataOffset, dataLength] = runState.stack.popN(3)
-
       if (dataLength !== BIGINT_0) {
         const data = getDataSlice(runState.interpreter.getCallData(), dataOffset, dataLength)
         const memOffsetNum = Number(memOffset)
         const dataLengthNum = Number(dataLength)
         runState.memory.write(memOffsetNum, dataLengthNum, data)
+
+        // For synthesizer
+        const [_memOffset, _dataOffset, _dataLength] = runState.stackPt.popN(3)
+        if ( (_memOffset.value != memOffset) || (_dataOffset.value != dataOffset) || (_dataLength.value != dataLength) ){
+          throw new Error(`Synthesizer: CALLDATACOPY: Input data mismatch`)
+        }
+        const dataOffsetNum = Number(dataOffset)
+        const calldataMemoryPts = runState.interpreter._env.callMemoryPts
+        let memoryPtsToCopy: MemoryPts = []
+        if (calldataMemoryPts.length > 0){
+          // Case: The calldata is originated from the parent context
+          memoryPtsToCopy = copyMemoryRegion(runState, dataOffset, dataLength, calldataMemoryPts)
+        } else {
+          // Case: The calldata is originated from Environmental Information
+          const entryToCopy: MemoryPtEntry = {
+            memOffset: 0,
+            containerSize: dataLengthNum,
+            dataPt: runState.synthesizer.loadEnvInf('calldata', bytesToBigInt(data), dataOffsetNum, dataLengthNum),
+          }
+          memoryPtsToCopy.push(entryToCopy)
+        }
+
+        for (const entry of memoryPtsToCopy){
+          // the lower index, the older data
+          runState.memoryPt.write(
+            memOffsetNum + entry.memOffset,
+            entry.containerSize,
+            entry.dataPt
+          )
+        }
+      }
+      const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
+      const outData = runState.memory.read(Number(memOffset), Number(dataLength))
+      if (!equalsBytes(_outData, outData)){
+        throw new Error(`Synthesizer: CALLDATACOPY: Output data mismatch`)
       }
     },
   ],
@@ -944,9 +1017,12 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For Synthesizer //
       const loadSize = 32
       const offsetPt = runState.stackPt.pop()
+      if (pos != offsetPt.value){
+        throw new Error(`Synthesizer: MLOAD: Input data mismatch`)
+      }
       const offsetNum = Number(offsetPt.value)
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
-      const mutDataPt = runState.synthesizer.newPlacementMLOAD(dataAliasInfos)
+      const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
 
       /***
        * EVM 실행과 포인터 추적 시스템 간의 일관성 검증
@@ -976,7 +1052,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         console.log('runState.stack : ', runState.stack)
         console.log('mutDataPt : ', mutDataPt)
-        throw new Error(`MLOAD: Data mismatch between stackPt and stack`)
+        throw new Error(`Synthesizer: MLOAD: Output data mismatch`)
       }
       runState.stackPt.push(mutDataPt)
     },
@@ -993,8 +1069,8 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For Synthesizer //
       const truncSize = 32
       const dataPt = runState.stackPt.peek(2)[1]
-      const memPt = runState.synthesizer.newPlacementMSTORE(truncSize, dataPt)
-      if (truncSize < dataPt.actualSize) {
+      const memPt = runState.synthesizer.placeMSTORE(dataPt, truncSize)
+      if (truncSize < dataPt.sourceSize) {
         // StackPt에서 dataPt를 변형을 추적 memPt로 교체해 줍니다.
         runState.stackPt.swap(1)
         runState.stackPt.pop() // 기존 dataPt를 버립니다.
@@ -1038,8 +1114,8 @@ export const handlers: Map<number, OpHandler> = new Map([
       const truncSize = 1 // MSTORE8은 최하위 1바이트만을 저장하고, 상위 바이트는 버림.
       const dataPt = runState.stackPt.peek(2)[1] // StackPt에서 최상위 두번째 포인터를 리턴 (stack.ts 참고)
       // 데이터의 변형을 추적하면서 동시에 Placements에도 반영 해 줍니다.
-      const memPt = runState.synthesizer.newPlacementMSTORE(truncSize, dataPt)
-      if (truncSize < dataPt.actualSize) {
+      const memPt = runState.synthesizer.placeMSTORE(dataPt, truncSize)
+      if (truncSize < dataPt.sourceSize) {
         // StackPt에서 dataPt를 변형을 추적 memPt로 교체해 줍니다.
         runState.stackPt.swap(1)
         runState.stackPt.pop() // 기존 dataPt를 버립니다.
@@ -1049,7 +1125,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // 이제 일반적인 MSTORE 연산을 수행합니다
       const [offsetPt, newDataPt] = runState.stackPt.popN(2)
       const _offsetNum = Number(offsetPt.value)
-      if (_offsetNum !== offsetNum || newDataPt.value !== byte) {
+      if (_offsetNum !== offsetNum || newDataPt.value !== bytesToBigInt(buf)) {
         throw new Error(`MSTORE8: Data mismatch between stackPt and stack`)
       }
       runState.memoryPt.write(offsetNum, truncSize, newDataPt)
@@ -1194,11 +1270,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(BIGINT_0)
 
       // For Synthesizer //
-      // const value = runState.stack.peek(1)[0]
-      const dataPt = runState.synthesizer.newPlacementPUSH(
+      const dataPt = runState.synthesizer.loadPUSH(
         runState.env.address.toString(),
         runState.programCounterPrev,
         BIGINT_0,
+        1
       )
       runState.stackPt.push(dataPt)
     },
@@ -1207,10 +1283,6 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x60,
     function (runState, common) {
-      // console.log('Before PUSH1:')
-      // console.log('stack:', runState.stack)
-      // console.log('stackPt:', runState.stackPt)
-
       const numToPush = runState.opCode - 0x5f
 
       if (
@@ -1244,21 +1316,15 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       // For Synthesizer
-      // const value = runState.stack.peek(1)[0]
-      // const dataPt = runState.synthesizer.newPlacementPUSH(runState.programCounterPrev, value)
-      // runState.stackPt.push(dataPt)
-
       const value = runState.stack.peek(1)[0]
-      const dataPt = runState.synthesizer.newPlacementPUSH(
+      const dataPt = runState.synthesizer.loadPUSH(
         runState.env.address.toString(),
         runState.programCounterPrev,
         value,
+        numToPush
       )
       runState.stackPt.push(dataPt)
 
-      // console.log('After PUSH1:')
-      // console.log('stack:', runState.stack)
-      // console.log('stackPt:', runState.stackPt)
     },
   ],
   // 0x80: DUP
@@ -1745,9 +1811,31 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       runState.messageGasLimit = undefined
 
-      const ret = await runState.interpreter.call(gasLimit, toAddress, value, data)
-      // Write return data to memory
-      // Synthesizer를 위해 writeCallOutput을 수정하였음
+      // For synthesizer
+      const [__currentGasLimit, _toAddr, _value, _inOffset, _inLength, _outOffset, _outLength] =
+        runState.stackPt.popN(7)
+      if ( __currentGasLimit.value != _currentGasLimit ||
+        _toAddr.value != toAddr ||
+        _value.value != value ||
+        _inOffset.value != inOffset ||
+        _inLength.value != inLength ||
+        _outOffset.value != outOffset ||
+        _outLength.value != outLength ){
+          throw new Error(`Synthesizer: CALL: Input data mismatch`)
+        }
+      const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
+      
+      // for debugging
+      const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
+      const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
+      if (!equalsBytes(_data, data)){
+        throw new Error(`Synthesizer: CALL: Output data mismatch`)
+      }
+      ////
+
+      const ret = await runState.interpreter.call(gasLimit, toAddress, value, data, calldataMemoryPts)
+    
+      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1774,9 +1862,31 @@ export const handlers: Map<number, OpHandler> = new Map([
         data = runState.memory.read(Number(inOffset), Number(inLength), true)
       }
 
-      const ret = await runState.interpreter.callCode(gasLimit, toAddress, value, data)
-      // Write return data to memory
-      // Synthesizer를 위해 writeCallOutput을 수정하였음
+      // For synthesizer
+      const [__currentGasLimit, _toAddr, _value, _inOffset, _inLength, _outOffset, _outLength] =
+        runState.stackPt.popN(7)
+      if ( __currentGasLimit.value != _currentGasLimit ||
+        _toAddr.value != toAddr ||
+        _value.value != value ||
+        _inOffset.value != inOffset ||
+        _inLength.value != inLength ||
+        _outOffset.value != outOffset ||
+        _outLength.value != outLength ){
+          throw new Error(`Synthesizer: CALLCODE: Input data mismatch`)
+        }
+      const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
+      
+      // for debugging
+      const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
+      const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
+      if (!equalsBytes(_data, data)){
+        throw new Error(`Synthesizer: CALLCODE: Output data mismatch`)
+      }
+      ////
+
+      const ret = await runState.interpreter.callCode(gasLimit, toAddress, value, data, calldataMemoryPts)
+      
+      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1798,9 +1908,31 @@ export const handlers: Map<number, OpHandler> = new Map([
       const gasLimit = runState.messageGasLimit!
       runState.messageGasLimit = undefined
 
-      const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data)
-      // Write return data to memory
-      // Synthesizer를 위해 writeCallOutput을 수정하였음
+      // For synthesizer
+      const [__currentGasLimit, _toAddr, _inOffset, _inLength, _outOffset, _outLength] =
+        runState.stackPt.popN(6)
+      if ( __currentGasLimit.value != _currentGasLimit ||
+        _toAddr.value != toAddr ||
+        _inOffset.value != inOffset ||
+        _inLength.value != inLength ||
+        _outOffset.value != outOffset ||
+        _outLength.value != outLength ){
+          throw new Error(`Synthesizer: DELEGATECALL: Input data mismatch`)
+        }
+      
+      const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
+      
+      // for debugging
+      const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
+      const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
+      if (!equalsBytes(_data, data)){
+        throw new Error(`Synthesizer: DELEGATECALL: Output data mismatch`)
+      }
+      ////        
+
+      const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data, calldataMemoryPts)
+      
+      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1832,7 +1964,9 @@ export const handlers: Map<number, OpHandler> = new Map([
           data = runState.memory.read(Number(inOffset), Number(inLength), true)
         }
 
-        const ret = await runState.interpreter.call(gasLimit, toAddress, value, data)
+        // dataPts for Synthesizer
+        const dataPts = runState.memoryPt.read(Number(inOffset), Number(inLength))
+        const ret = await runState.interpreter.call(gasLimit, toAddress, value, data, dataPts)
         // Write return data to memory
 
         runState.stack.push(ret)
@@ -1875,7 +2009,9 @@ export const handlers: Map<number, OpHandler> = new Map([
           data = runState.memory.read(Number(inOffset), Number(inLength), true)
         }
 
-        const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data)
+        // dataPts for Synthesizer
+        const dataPts = runState.memoryPt.read(Number(inOffset), Number(inLength))
+        const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data, dataPts)
         runState.stack.push(ret)
       }
     },
@@ -1897,9 +2033,31 @@ export const handlers: Map<number, OpHandler> = new Map([
         data = runState.memory.read(Number(inOffset), Number(inLength), true)
       }
 
-      const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data)
-      // Write return data to memory
-      // Synthesizer를 위해 writeCallOutput을 수정하였음
+      // For synthesizer
+      const [__currentGasLimit, _toAddr, _inOffset, _inLength, _outOffset, _outLength] =
+        runState.stackPt.popN(6)
+      if ( __currentGasLimit.value != _currentGasLimit ||
+        _toAddr.value != toAddr ||
+        _inOffset.value != inOffset ||
+        _inLength.value != inLength ||
+        _outOffset.value != outOffset ||
+        _outLength.value != outLength ){
+          throw new Error(`Synthesizer: STATICCALL: Input data mismatch`)
+        }
+      const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
+      
+      
+      // for debugging
+      const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
+      const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
+      if (!equalsBytes(_data, data)){
+        throw new Error(`Synthesizer: STATICCALL: Output data mismatch`)
+      }
+      ////
+
+      const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data, calldataMemoryPts)
+      
+      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -1932,7 +2090,9 @@ export const handlers: Map<number, OpHandler> = new Map([
           data = runState.memory.read(Number(inOffset), Number(inLength), true)
         }
 
-        const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data)
+        // dataPts for Synthesizer
+        const dataPts = runState.memoryPt.read(Number(inOffset), Number(inLength))
+        const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data, dataPts)
         runState.stack.push(ret)
       }
     },
@@ -1943,29 +2103,26 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       const [offset, length] = runState.stack.popN(2)
       let returnData = new Uint8Array(0)
-      let returnMemoryPts: MemoryPts = []
       if (length !== BIGINT_0) {
         returnData = runState.memory.read(Number(offset), Number(length))
-        // For Synthesizer
-        returnMemoryPts = runState.memoryPt.return(Number(offset), Number(length))
       }
-
-      /*
-      // For Synthesizer //
-      const [offsetPt, lengthPt] = runState.stackPt.popN(2)
-      const offsetNum = Number(offsetPt.value)
-      const lengthNum = Number(lengthPt.value)
-      const nChunks = Math.ceil(lengthNum / 32)
-      for (let i = 0; i < nChunks; i++) {
-        const chunkOffset = offsetNum + 32 * i
-        const dataAliasInfos = runState.memoryPt.getDataAlias(chunkOffset, 32)
-        runState.synthesizer.newPlacementRETURNs('RETURN', dataAliasInfos)
+      
+      // For Synthesizer
+      const [_offset, _length] = runState.stackPt.popN(2)
+      if (_offset.value != offset || _length.value != length){
+        throw new Error(`Synthesizer: RETURN: Input data mismatch`)
       }
-      ////
-      */
-
-      runState.interpreter.finish(returnData)
+      const returnMemoryPts = copyMemoryRegion(runState, offset, length)
       runState.interpreter.finishPt(returnMemoryPts)
+      
+      // for debugging
+      const simMemoryPt = simulateMemoryPt(returnMemoryPts)
+      const _returnData = simMemoryPt.viewMemory(Number(offset), Number(length))
+      if (!equalsBytes(_returnData, returnData)){
+        throw new Error(`Synthesizer: RETURN: Output data mismatch`)
+      }
+      // Halt the current code run
+      runState.interpreter.finish(returnData)
     },
   ],
   // 0xfd: REVERT

@@ -1,17 +1,16 @@
 import { subcircuits } from './subcircuit_info.js'
 import { powMod } from './utils.js'
-
-import type { DataAliasInfos } from './memoryPt.js'
+import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from './memoryPt.js'
 
 /**
  * @TODO
  * 
  * 1. loadSubcircuit을 분할
  *  -> 1-1. public load
- *    -> envirmental information, 최종 출력
+ *    -> envirmental information, 최종 출력, auxin 데이터
  *    -> 
  *  -> 1-2. private load
- *    -> 바이트 코드 데이터, auxin 데이터
+ *    -> 바이트 코드 데이터
  * 
  /
 
@@ -54,16 +53,16 @@ export type SubcircuitId = {
 /**
  * @property {string | number} source - 데이터 소스의 식별자. 문자열 또는 숫자.
  * @property {number} sourceOffset - 데이터 소스 내에서의 위치를 나타내는 오프셋.
- * @property {number} actualSize - 데이터의 실제 크기.
+ * @property {number} sourceSize - 데이터의 실제 크기.
  * @property {bigint} value - 데이터 값.
  * @property {string} valuestr - 데이터 값을 16진수 문자열로 표현한 값.
  */
 export type DataPt = {
   source: string | number
-  sourceOffset: number
-  actualSize: number
+  sourceIndex: number
+  sourceSize: number
   value: bigint
-  valuestr: string
+  valueHex: string
 }
 
 type PlacementEntry = {
@@ -101,6 +100,7 @@ const convertToSigned = (value: bigint): bigint => {
 export class Synthesizer {
   public placements: Placements
   public auxin: bigint[]
+  public envInf: Map<string, bigint>
   protected placementIndex: number
   private subcircuitNames
 
@@ -112,6 +112,7 @@ export class Synthesizer {
       outPts: [],
     })
     this.auxin = []
+    this.envInf = new Map()
     this.placementIndex = 1
     this.subcircuitNames = subcircuits.map((circuit) => circuit.name)
   }
@@ -124,22 +125,22 @@ export class Synthesizer {
    * @param {bigint} value - 데이터 값.
    * @returns {DataPt} 생성된 데이터 포인트.
    */
-  public newDataPt(sourceId: number | string, sourceOffset: number, value: bigint): DataPt {
+  public newDataPt(sourceId: number | string, sourceIndex: number, value: bigint, sourceSize: number): DataPt {
     /**
      * 생성된 데이터 포인트를 나타내는 변수입니다.
      *
      * @property {string | number} source - 데이터 소스의 식별자.
      * @property {number} sourceOffset - 데이터 소스 내에서의 위치를 나타내는 오프셋.
-     * @property {number} actualSize - 데이터의 실제 크기.
+     * @property {number} sourceSize - 데이터의 실제 크기.
      * @property {bigint} value - 데이터 값.
      * @property {string} valuestr - 데이터 값을 16진수 문자열로 표현한 값.
      */
     const outDataPt: DataPt = {
       source: sourceId,
-      sourceOffset,
-      actualSize: byteSize(value),
+      sourceIndex,
+      sourceSize,
       value,
-      valuestr: value.toString(16),
+      valueHex: value.toString(16),
     }
     return outDataPt
   }
@@ -152,16 +153,45 @@ export class Synthesizer {
    * @param {bigint} value - PUSH 입력 인자의 값.
    * @returns {void}
    */
-  public newPlacementPUSH(codeAddress: string, programCounter: number, value: bigint): DataPt {
-    const pointerIn: DataPt = this.newDataPt(`code: ${codeAddress}`, programCounter + 1, value)
+  public loadPUSH(codeAddress: string, programCounter: number, value: bigint, size: number): DataPt {
+    const pointerIn: DataPt = this.newDataPt(`code: ${codeAddress}`, programCounter + 1, value, size)
 
     // 기존 output list에 이어서 추가
     const outOffset = this.placements.get(0)!.outPts.length
-    const pointerOut: DataPt = this.newDataPt(0, outOffset, value)
+    const pointerOut: DataPt = this.newDataPt(0, outOffset, value, 32)
     this.placements.get(0)!.inPts.push(pointerIn)
     this.placements.get(0)!.outPts.push(pointerOut)
 
     return this.placements.get(0)!.outPts[outOffset]
+  }
+  public loadAuxin(value: bigint): DataPt {
+    this.auxin.push(value)
+    const auxinIndex = this.auxin.length - 1
+    const auxValue = this.auxin[auxinIndex]
+    const pointerIn = this.newDataPt('auxin', auxinIndex, auxValue, 32)
+
+    // 기존 output list에 이어서 추가
+    const outOffset = this.placements.get(0)!.outPts.length
+    const pointerOut: DataPt = this.newDataPt(0, outOffset, auxValue, 32)
+    this.placements.get(0)!.inPts.push(pointerIn)
+    this.placements.get(0)!.outPts.push(pointerOut)
+
+    return this.placements.get(0)!.outPts[outOffset]
+  }
+
+  public loadEnvInf(source: string, value: bigint, offset?: number, size?: number): DataPt {
+    this.envInf.set(source,value)
+    const index = offset ?? 0
+    const sourceSize = size ?? 32
+    const pointerIn = this.newDataPt(source, index, value, sourceSize)
+
+    // 기존 output list에 이어서 추가
+    const outIndex = this.placements.get(0)!.outPts.length
+    const pointerOut: DataPt = this.newDataPt(0, outIndex, value, sourceSize)
+    this.placements.get(0)!.inPts.push(pointerIn)
+    this.placements.get(0)!.outPts.push(pointerOut)
+
+    return this.placements.get(0)!.outPts[outIndex]
   }
 
   /**
@@ -178,9 +208,9 @@ export class Synthesizer {
    * @returns {void}
    * 이 메서드는 MSTORE 오퍼코드를 시뮬레이션하여 새로운 배치를 추가합니다. truncSize가 dataPt.actualSize보다 작으면, 데이터의 하위 바이트만 저장하고 상위 바이트는 버립니다. 변형된 데이터 포인트를 반환합니다.
    */
-  public newPlacementMSTORE(truncSize: number, dataPt: DataPt): DataPt {
+  public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
     // MSTORE8은 trucSize=1로써, data의 최하위 1바이트만을 저장하고 상위 바이트는 버림.
-    if (truncSize < dataPt.actualSize) {
+    if (truncSize < dataPt.sourceSize) {
       // 원본 데이터에 변형이 있으므로, 이를 추적하는 가상의 연산를 만들고 이를 Placements에 반영합니다.
       // MSTORE8의 데이터 변형은 AND 연산으로 표현 가능 (= AND(data, 0xff))
       const maskerString = '0x' + 'FF'.repeat(truncSize)
@@ -193,24 +223,20 @@ export class Synthesizer {
       // const maskerString = '0x' + mask.toString(16).toUpperCase()
 
       const outValue = dataPt.value & BigInt(maskerString)
-
       if (dataPt.value !== outValue) {
-        this.auxin.push(BigInt(maskerString))
-        const auxinIndex = this.auxin.length - 1
-        const auxValue = this.auxin[auxinIndex]
         const subcircuitName = 'AND'
-        const inPts: DataPt[] = []
-        // AND는 두 개의 입력과 하나의 출력을 가집니다. 각각,
-        inPts[0] = dataPt
-        inPts[1] = this.newDataPt('auxin', auxinIndex, auxValue)
-        const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, outValue)]
+        const inPts: DataPt[] = [
+          this.loadAuxin(BigInt(maskerString)),
+          dataPt,
+        ]
+        const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, outValue, truncSize)]
         this._place(subcircuitName, inPts, outPts)
 
         return outPts[0]
       }
     }
     const outPt = dataPt
-    outPt.actualSize = truncSize
+    outPt.sourceSize = truncSize
     return outPt
   }
 
@@ -221,11 +247,23 @@ export class Synthesizer {
    * @param {DataAliasInfos} dataAliasInfos - 데이터 출처와 변형 정보를 포함하는 배열.
    * @returns {DataPt} 생성된 데이터 포인트.
    */
-  public newPlacementMLOAD(dataAliasInfos: DataAliasInfos): DataPt {
+  public placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {
     if (dataAliasInfos.length === 0) {
-      throw new Error(`Failur in loading memory pointer`)
+      throw new Error(`Synthesizer: placeMemoryToStack: Noting tho load`)
     }
     return this._resolveDataAlias(dataAliasInfos)
+  }
+  
+  public placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[] {
+    if (dataAliasInfos.length === 0) {
+      throw new Error(`Synthesizer: placeMemoryToMemory: Nothing to load`)
+    }
+    let copiedDataPts: DataPt[] = []
+    for (const info of dataAliasInfos) {
+      // the lower index, the older data
+      copiedDataPts.push(this._applyMask(info, true))
+    }
+    return copiedDataPts
   }
 
   /**
@@ -238,52 +276,52 @@ export class Synthesizer {
    * @param {DataAliasInfos} dataAliasInfos - 데이터 출처와 변형 정보를 포함하는 배열.
    * @returns {DataPt} 생성된 데이터 포인트.
    */
-  public newPlacementRETURNs(name: string, dataAliasInfos: DataAliasInfos): DataPt {
-    const inPt: DataPt = this._resolveDataAlias(dataAliasInfos)
-    const outPt: DataPt = inPt
-    outPt.sourceOffset = 0
-    outPt.source = this.placementIndex
+  // public newPlacementRETURNs(name: string, dataAliasInfos: DataAliasInfos): DataPt {
+  //   const inPt: DataPt = this._resolveDataAlias(dataAliasInfos)
+  //   const outPt: DataPt = inPt
+  //   outPt.sourceIndex = 0
+  //   outPt.source = this.placementIndex
 
-    switch (name) {
-      case 'RETURN': {
-        const aliasResolvedDataPt = this.newPlacementMLOAD(dataAliasInfos)
+  //   switch (name) {
+  //     case 'RETURN': {
+  //       const aliasResolvedDataPt = this.placeMemoryToMemory(dataAliasInfos)
 
-        let dataCopy = aliasResolvedDataPt.value
-        const uint8Array = new Uint8Array(32)
-        for (let i = 31; i >= 0; i--) {
-          uint8Array[i] = Number(dataCopy & 0xffn)
-          dataCopy >>= 8n
-        }
+  //       let dataCopy = aliasResolvedDataPt.value
+  //       const uint8Array = new Uint8Array(32)
+  //       for (let i = 31; i >= 0; i--) {
+  //         uint8Array[i] = Number(dataCopy & 0xffn)
+  //         dataCopy >>= 8n
+  //       }
 
-        /**
-         * @example Big Endian
-         *
-         * 주소:  0x00  0x01  0x02  0x03
-         * 값:   0x12  0x34  0x56  0x78
-         */
-        const outValues = Array.from(uint8Array, (byte) => BigInt(byte))
-        const sourceOffset = this.auxin.length
-        this._addAuxin(outValues)
+  //       /**
+  //        * @example Big Endian
+  //        *
+  //        * 주소:  0x00  0x01  0x02  0x03
+  //        * 값:   0x12  0x34  0x56  0x78
+  //        */
+  //       const outValues = Array.from(uint8Array, (byte) => BigInt(byte))
+  //       const sourceOffset = this.auxin.length
+  //       this._addAuxin(outValues)
 
-        const inPt = aliasResolvedDataPt
-        const outPts: DataPt[] = outValues
-          .slice(0, 32)
-          .map((value, index) => this.newDataPt('auxin', sourceOffset + index, value))
-        this._place('RETURN', [inPt], outPts)
-        break
-      }
-      default:
-        throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
-    }
+  //       const inPt = aliasResolvedDataPt
+  //       const outPts: DataPt[] = outValues
+  //         .slice(0, 32)
+  //         .map((value, index) => this.newDataPt('auxin', sourceOffset + index, value, 32))
+  //       this._place('RETURN', [inPt], outPts)
+  //       break
+  //     }
+  //     default:
+  //       throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
+  //   }
 
-    /**
-     * @todo
-     *
-     * outPt 리턴을 여기서 해야될 필요?
-     * switch statement 안에서 해야될 것처럼 보임
-     */
-    return outPt
-  }
+  //   /**
+  //    * @todo
+  //    *
+  //    * outPt 리턴을 여기서 해야될 필요?
+  //    * switch statement 안에서 해야될 것처럼 보임
+  //    */
+  //   return outPt
+  // }
 
   /**
    * 새로운 산술 연산 배치를 추가합니다.
@@ -293,7 +331,7 @@ export class Synthesizer {
    * @returns {DataPt[]} 생성된 출력 데이터 포인트 배열.
    * @throws {Error} 정의되지 않은 서브서킷 이름이 주어진 경우.
    */
-  public newPlacementArith(name: string, inPts: DataPt[]): DataPt[] {
+  public placeArith(name: string, inPts: DataPt[]): DataPt[] {
     if (!this.subcircuitNames.includes(name)) {
       throw new Error(`Subcircuit name ${name} is not defined.`)
     }
@@ -305,7 +343,7 @@ export class Synthesizer {
           throw new Error(`ADD takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
         const outValue = inPts[0].value + inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -316,7 +354,7 @@ export class Synthesizer {
           throw new Error(`MUL takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
         const outValue = inPts[0].value * inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -327,7 +365,7 @@ export class Synthesizer {
           throw new Error(`SUB takes 2 inputs, while this placement takes ${inPts.length}.`)
         }
         const outValue = inPts[0].value - inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -339,7 +377,7 @@ export class Synthesizer {
         }
         // 0으로 나누기 처리
         const outValue = inPts[1].value === 0n ? 0n : inPts[0].value / inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -364,7 +402,7 @@ export class Synthesizer {
           }
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -376,7 +414,7 @@ export class Synthesizer {
         }
         // 0으로 나누기 처리
         const outValue = inPts[1].value === 0n ? 0n : inPts[0].value % inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -407,7 +445,7 @@ export class Synthesizer {
           }
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -425,7 +463,7 @@ export class Synthesizer {
           outValue = (inPts[0].value + inPts[1].value) % inPts[2].value
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -443,7 +481,7 @@ export class Synthesizer {
           outValue = (inPts[0].value * inPts[1].value) % inPts[2].value
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -470,7 +508,7 @@ export class Synthesizer {
           outValue = powMod(base, exponent, modulus)
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -482,7 +520,7 @@ export class Synthesizer {
         }
 
         const outValue = inPts[0].value === inPts[1].value ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -494,7 +532,7 @@ export class Synthesizer {
         }
 
         const outValue = inPts[0].value === 0n ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -523,7 +561,7 @@ export class Synthesizer {
           outValue = (value << shift) & ((1n << 256n) - 1n)
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -546,7 +584,7 @@ export class Synthesizer {
           outValue = value >> shift
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -559,7 +597,7 @@ export class Synthesizer {
 
         // 부호 없는(unsigned) 비교 수행
         const outValue = inPts[0].value < inPts[1].value ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -572,7 +610,7 @@ export class Synthesizer {
 
         // 부호 없는(unsigned) 비교 수행
         const outValue = inPts[0].value > inPts[1].value ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -585,7 +623,7 @@ export class Synthesizer {
 
         // 256비트 NOT 연산 수행
         const outValue = ~inPts[0].value & ((1n << 256n) - 1n)
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -610,7 +648,7 @@ export class Synthesizer {
           outValue = (word >> shiftBits) & 0xffn
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -643,7 +681,7 @@ export class Synthesizer {
           }
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -677,7 +715,7 @@ export class Synthesizer {
           }
         }
 
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -695,7 +733,7 @@ export class Synthesizer {
         const b = convertToSigned(inPts[1].value)
 
         const outValue = a < b ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -711,7 +749,7 @@ export class Synthesizer {
         const b = convertToSigned(inPts[1].value)
 
         const outValue = a > b ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -724,7 +762,7 @@ export class Synthesizer {
 
         // 두 입력값에 대해 비트 AND 연산 수행
         const outValue = inPts[0].value & inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -737,7 +775,7 @@ export class Synthesizer {
 
         // 두 입력값에 대해 비트 OR 연산 수행
         const outValue = inPts[0].value | inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -750,7 +788,7 @@ export class Synthesizer {
 
         // 두 입력값에 대해 비트 XOR 연산 수행
         const outValue = inPts[0].value ^ inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
+        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
         this._place(name, inPts, outPts)
         break
       }
@@ -783,39 +821,22 @@ export class Synthesizer {
    * @returns {DataPt} 생성된 데이터 포인트.
    */
   private _resolveDataAlias(dataAliasInfos: DataAliasInfos): DataPt {
-    const orTargets: number[] = []
+    const ADDTargets: number[] = []
     const prevPlacementIndex = this.placementIndex
-    // 먼저 각각을 shift 후 AND 해줌
+    // 먼저 각각을 shift 후 mask와 AND 해줌
 
     for (const info of dataAliasInfos) {
-      const { masker, shift: _shift, dataPt } = info
-      const shift = BigInt(_shift)
-      let shiftOutValue = dataPt.value
-
-      if (Math.abs(Number(shift)) > 0) {
-        // shift 값과 shift 방향과의 관계는 MemoryPt에서 정의하였음
-        /**
-         * @author Ale
-         *
-         */
-        shiftOutValue = this._applyShift(shift, dataPt)
-      }
-
-      const maskOutValue = shiftOutValue & BigInt(masker)
-
-      if (maskOutValue !== shiftOutValue) {
-        this._applyMask(masker, shiftOutValue)
-      }
-
+      // this method may increases the placementIndex
+      this._applyShiftAndMask(info)
       if (prevPlacementIndex !== this.placementIndex) {
-        orTargets.push(this.placementIndex - 1)
+        ADDTargets.push(this.placementIndex - 1)
       }
     }
 
-    const nDataAlias = orTargets.length
+    const nDataAlias = ADDTargets.length
 
     if (nDataAlias > 1) {
-      this._addAndPlace(orTargets)
+      this._addAndPlace(ADDTargets)
     }
 
     if (prevPlacementIndex === this.placementIndex) {
@@ -826,6 +847,7 @@ export class Synthesizer {
   }
 
   /**
+   * @deprecated Auxin에는 한 번에 하나씩 원소가 추가되어야 하며, 하나가 추가 될 때 마다 LOAD 서브서킷에 등록하도록 변경됨
    * auxin 배열에 값을 추가합니다.
    *
    * @param {bigint} value - 추가할 값.
@@ -838,6 +860,19 @@ export class Synthesizer {
     }
   }
 
+  private _applyShiftAndMask(info: DataAliasInfoEntry): DataPt{
+    let shiftOutPt = info.dataPt
+    shiftOutPt = this._applyShift(info)
+    const modInfo: DataAliasInfoEntry = {
+      dataPt: shiftOutPt,
+      masker: info.masker,
+      shift: info.shift
+    }
+    let maskOutPt = modInfo.dataPt
+    maskOutPt = this._applyMask(modInfo)
+    return maskOutPt
+}
+
   /**
    * shift 연산을 적용합니다.
    *
@@ -845,65 +880,67 @@ export class Synthesizer {
    * @param {DataPt} dataPt - 데이터 포인트.
    * @returns {bigint} shift 연산이 적용된 값.
    */
-  private _applyShift(shift: bigint, dataPt: DataPt): bigint {
-    const subcircuitName: string = shift > 0 ? 'SHL' : 'SHR'
-    const absShift = shift < 0n ? -shift : shift
-    this._addAuxin(absShift)
-    const auxinIndex = this.auxin.length - 1
-    const auxValue = this.auxin[auxinIndex]
-    const inPts: DataPt[] = []
-    inPts[0] = this.newDataPt('auxin', auxinIndex, auxValue)
-    inPts[1] = dataPt
-    const shiftOutValue =
-      shift > 0 ? inPts[1].value << inPts[0].value : inPts[1].value >> inPts[0].value
-    const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, shiftOutValue)]
-    this._place(subcircuitName, inPts, outPts)
-    return shiftOutValue
+  private _applyShift(info: DataAliasInfoEntry): DataPt {
+    const { shift, dataPt } = info
+    let outPts = [dataPt]
+    if (Math.abs(shift) > 0) {
+      // shift 값과 shift 방향과의 관계는 MemoryPt에서 정의하였음
+      const subcircuitName: string = shift > 0 ? 'SHL' : 'SHR'
+      const absShift = Math.abs(shift)
+      const inPts: DataPt[] = [
+        this.loadAuxin(BigInt(absShift)),
+        dataPt,
+      ]
+      outPts = this.placeArith(subcircuitName,inPts)      
+    }
+    return outPts[0]
   }
 
   /**
    * mask 연산을 적용합니다.
    *
    * @param {string} masker - 적용할 mask 값.
-   * @param {bigint} shiftOutValue - shift 연산이 적용된 값.
+   * @param {bigint} dataPt - 적용 대상의 포인터.
    */
-  private _applyMask(masker: string, shiftOutValue: bigint): void {
-    const subcircuitName = 'AND'
-    this.auxin.push(BigInt(masker))
-    const auxinIndex = this.auxin.length - 1
-    const auxValue = this.auxin[auxinIndex]
-    const inPts: DataPt[] = []
-    inPts[0] = this.newDataPt('auxin', auxinIndex, auxValue)
-    inPts[1] = this.newDataPt(this.placementIndex, 0, shiftOutValue)
-    const outPts: DataPt[] = [
-      this.newDataPt(this.placementIndex, 0, shiftOutValue & BigInt(masker)),
-    ]
-    this._place(subcircuitName, inPts, outPts)
+  private _applyMask(info: DataAliasInfoEntry, unshift?: boolean): DataPt {
+    let masker = info.masker
+    const { shift, dataPt } = info
+    if (unshift === true){
+      const maskerBigint = BigInt(masker)
+      const unshiftMaskerBigint = shift > 0 ? maskerBigint >> BigInt(Math.abs(shift)) : maskerBigint << BigInt(Math.abs(shift))
+      masker = '0x' + unshiftMaskerBigint.toString(16)
+    }
+    const maskOutValue = dataPt.value & BigInt(masker)
+    let outPts = [dataPt]
+    if (maskOutValue !== dataPt.value) {
+      const inPts: DataPt[] = [
+        this.loadAuxin(BigInt(masker)),
+        dataPt,
+      ]
+      outPts = this.placeArith('AND', inPts)
+          
+    }
+    return outPts[0]
   }
 
   /**
    * AND 결과물들을 모두 ADD 해줍니다.
    *
-   * @param {number[]} orTargets - OR 연산 대상 인덱스 배열.
+   * @param {number[]} addTargets - OR 연산 대상 인덱스 배열.
    */
-  private _addAndPlace(orTargets: number[]): void {
-    const subcircuitName = 'ADD'
+  private _addAndPlace(addTargets: number[]): void {
     let inPts: DataPt[] = [
-      this.placements.get(orTargets[0])!.outPts[0],
-      this.placements.get(orTargets[1])!.outPts[0],
+      this.placements.get(addTargets[0])!.outPts[0],
+      this.placements.get(addTargets[1])!.outPts[0],
     ]
-    let outValue = inPts[0].value + inPts[1].value
-    let outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, outValue)]
-    this._place(subcircuitName, inPts, outPts)
+    this.placeArith('ADD', inPts)
 
-    for (let i = 2; i < orTargets.length; i++) {
+    for (let i = 2; i < addTargets.length; i++) {
       inPts = [
         this.placements.get(this.placementIndex - 1)!.outPts[0],
-        this.placements.get(orTargets[i])!.outPts[0],
+        this.placements.get(addTargets[i])!.outPts[0],
       ]
-      outValue = inPts[0].value + inPts[1].value
-      outPts = [this.newDataPt(this.placementIndex, 0, outValue)]
-      this._place(subcircuitName, inPts, outPts)
+      this.placeArith('ADD', inPts)
     }
   }
 

@@ -363,6 +363,7 @@ export class EVM implements EVMInterface {
           executionGasUsed: message.gasLimit - gasLimit,
           exceptionError: errorMessage, // Only defined if addToBalance failed
           returnValue: new Uint8Array(0),
+          returnMemoryPts: [],
         },
       }
     }
@@ -437,6 +438,7 @@ export class EVM implements EVMInterface {
             returnValue: new Uint8Array(0),
             exceptionError: new EvmError(ERROR.INITCODE_SIZE_VIOLATION),
             executionGasUsed: message.gasLimit,
+            returnMemoryPts: []
           },
         }
       }
@@ -494,6 +496,7 @@ export class EVM implements EVMInterface {
           returnValue: new Uint8Array(0),
           exceptionError: new EvmError(ERROR.CREATE_COLLISION),
           executionGasUsed: message.gasLimit,
+          returnMemoryPts: []
         },
       }
     }
@@ -568,6 +571,7 @@ export class EVM implements EVMInterface {
           gasRefund: message.gasRefund,
           exceptionError: errorMessage, // only defined if addToBalance failed
           returnValue: new Uint8Array(0),
+          returnMemoryPts: []
         },
       }
     }
@@ -762,6 +766,7 @@ export class EVM implements EVMInterface {
       blobVersionedHashes: message.blobVersionedHashes ?? [],
       accessWitness: message.accessWitness,
       createdAddresses: message.createdAddresses,
+      callMemoryPts: message.memoryPts ?? []
     }
 
     const interpreter = new Interpreter(
@@ -815,6 +820,7 @@ export class EVM implements EVMInterface {
       executionGasUsed: gasUsed,
       gasRefund: interpreterRes.runState!.gasRefund,
       returnValue: result.returnValue ? result.returnValue : new Uint8Array(0),
+      returnMemoryPts: result.returnMemoryPts ? result.returnMemoryPts : []
     }
   }
 
@@ -1137,6 +1143,7 @@ export function OOGResult(gasLimit: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasLimit,
     exceptionError: new EvmError(ERROR.OUT_OF_GAS),
+    returnMemoryPts: []
   }
 }
 // CodeDeposit OOG Result
@@ -1145,6 +1152,7 @@ export function COOGResult(gasUsedCreateCode: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasUsedCreateCode,
     exceptionError: new EvmError(ERROR.CODESTORE_OUT_OF_GAS),
+    returnMemoryPts: []
   }
 }
 
@@ -1153,6 +1161,7 @@ export function INVALID_BYTECODE_RESULT(gasLimit: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasLimit,
     exceptionError: new EvmError(ERROR.INVALID_BYTECODE_RESULT),
+    returnMemoryPts: []
   }
 }
 
@@ -1161,6 +1170,7 @@ export function INVALID_EOF_RESULT(gasLimit: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasLimit,
     exceptionError: new EvmError(ERROR.INVALID_EOF_FORMAT),
+    returnMemoryPts: []
   }
 }
 
@@ -1169,6 +1179,7 @@ export function CodesizeExceedsMaximumError(gasUsed: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasUsed,
     exceptionError: new EvmError(ERROR.CODESIZE_EXCEEDS_MAXIMUM),
+    returnMemoryPts: []
   }
 }
 
@@ -1177,6 +1188,7 @@ export function EvmErrorResult(error: EvmError, gasUsed: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasUsed,
     exceptionError: error,
+    returnMemoryPts: []
   }
 }
 
