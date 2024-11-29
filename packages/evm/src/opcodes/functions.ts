@@ -4,6 +4,7 @@ import {
   BIGINT_1,
   BIGINT_160,
   BIGINT_2,
+  
   BIGINT_224,
   BIGINT_255,
   BIGINT_256,
@@ -613,7 +614,18 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x34,
     function (runState) {
-      runState.stack.push(runState.interpreter.getCallValue())
+      const value = runState.interpreter.getCallValue()
+      runState.stack.push(value)
+
+      // For Synthesizer //
+      const dataPt = {
+        source: 'callvalue',
+        sourceOffset: 0,
+        actualSize: 32,
+        value,
+        valuestr: value.toString(16),
+      }
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x35: CALLDATALOAD
@@ -677,6 +689,15 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       const r = runState.interpreter.getCallDataSize()
       runState.stack.push(r)
+
+      // For Synthesizer //
+      runState.stackPt.push({
+        source: 'CALLDATASIZE',
+        sourceOffset: 0,
+        actualSize: 1,
+        value: BigInt(r),
+        valuestr: r.toString(16),
+      })
     },
   ],
   // 0x37: CALLDATACOPY
@@ -746,6 +767,10 @@ export const handlers: Map<number, OpHandler> = new Map([
         const lengthNum = Number(dataLength)
         runState.memory.write(memOffsetNum, lengthNum, data)
       }
+
+      // For Synthesizer //
+      /*eslint-disable*/
+      const [destOffsetPt, offsetPt, sizePt] = runState.stackPt.popN(3)
     },
   ],
   // 0x3b: EXTCODESIZE
@@ -1004,6 +1029,8 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x50,
     function (runState) {
       runState.stack.pop()
+      // For Synthesizer //
+      runState.stackPt.pop()
     },
   ],
   // 0x51: MLOAD
@@ -1176,6 +1203,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       runState.programCounter = destNum
+
+      // For Synthesizer //
+      runState.stackPt.pop()
     },
   ],
   // 0x57: JUMPI
@@ -1196,6 +1226,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         runState.programCounter = destNum
       }
+
+      // For Synthesizer //
+      runState.stackPt.popN(2) // stackPt도 동일하게 pop
     },
   ],
   // 0x58: PC
