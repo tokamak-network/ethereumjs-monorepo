@@ -21,6 +21,7 @@ import type { ERROR } from '../exceptions.js'
 import type { RunState } from '../interpreter.js'
 import type { Common } from '@ethereumjs/common'
 import type { Address } from '@ethereumjs/util'
+import { copyMemoryRegion, MemoryPt, MemoryPts } from '../tokamak/memoryPt.js'
 
 const MASK_160 = (BIGINT_1 << BIGINT_160) - BIGINT_1
 
@@ -207,9 +208,14 @@ export function writeCallOutput(runState: RunState, outOffset: bigint, outLength
   // For synthesizer
   const returnMemoryPts = runState.interpreter.getReturnMemoryPts()
   if (returnMemoryPts.length > 0) {
-    //MemoryPts는 낮은 인덱스일수록 오래된 메모리 정보
-    for (const element of returnMemoryPts) {
-      runState.memoryPt.write(element.memOffset, element.containerSize, element.dataPt)
+    const acceptMemoryPts = copyMemoryRegion(runState, BIGINT_0, outLength, returnMemoryPts)
+    for (const entry of acceptMemoryPts){
+      // the lower index, the older data
+      runState.memoryPt.write(
+        Number(outOffset) + entry.memOffset,
+        entry.containerSize,
+        entry.dataPt
+      )
     }
   }
 }

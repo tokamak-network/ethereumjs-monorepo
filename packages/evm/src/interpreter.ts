@@ -91,6 +91,7 @@ export interface Env {
   createdAddresses?: Set<string>
   accessWitness?: VerkleAccessWitnessInterface
   chargeCodeAccesses?: boolean
+  callMemoryPts: MemoryPts
 }
 
 export interface RunState {
@@ -533,15 +534,16 @@ export class Interpreter {
         depth: eventObj.depth,
       }
 
-      if (!(name in this.opDebuggers)) {
-        this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
-      }
-      this.opDebuggers[name](JSON.stringify(opTrace))
       // console.log(`"memory": ${JSON.stringify(eventObj.memory)}\n`)
       console.log(`"memory": ${stringMemory.slice(0, 256)}\n`)
       console.log(`"stackPt": ${JSON.stringify(this._runState.stackPt.getStack(), arrToStr, 2)}\n`)
       console.log(`"memoryPt": ${JSON.stringify(stringMemoryPt, null, 1)}\n`)
-      console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+      //console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+      if (!(name in this.opDebuggers)) {
+        this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
+      }
+      this.opDebuggers[name](JSON.stringify(opTrace))
+      
 
       await waitForCommand('c')
     }
@@ -744,7 +746,6 @@ export class Interpreter {
    */
   finishPt(returnMemoryPts: MemoryPts): void {
     this._result.returnMemoryPts = returnMemoryPts
-    trap(ERROR.STOP)
   }
 
   /**
@@ -843,7 +844,7 @@ export class Interpreter {
   }
 
   /**
-   * Returns the data fragments aliased in the current return data buffer. This contains the source pointers to the return data
+   * Returns the pointers to the aliased data in the current return data buffer. This contains the source pointers to the return data
    * from last executed call, callCode, callDelegate, callStatic or create.
    * Note: create only fills the return data buffer in case of a failure.
    */
@@ -957,7 +958,7 @@ export class Interpreter {
   /**
    * Sends a message with arbitrary data to a given address path.
    */
-  async call(gasLimit: bigint, address: Address, value: bigint, data: Uint8Array): Promise<bigint> {
+  async call(gasLimit: bigint, address: Address, value: bigint, data: Uint8Array, memoryPts: MemoryPts,): Promise<bigint> {
     const msg = new Message({
       caller: this._env.address,
       gasLimit,
@@ -968,6 +969,7 @@ export class Interpreter {
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
       accessWitness: this._env.accessWitness,
+      memoryPts,
     })
 
     return this._baseCall(msg)
@@ -981,6 +983,7 @@ export class Interpreter {
     address: Address,
     value: bigint,
     data: Uint8Array,
+    memoryPts: MemoryPts,
   ): Promise<bigint> {
     const msg = new Message({
       caller: this._env.address,
@@ -993,6 +996,7 @@ export class Interpreter {
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
       accessWitness: this._env.accessWitness,
+      memoryPts,
     })
 
     return this._baseCall(msg)
@@ -1008,6 +1012,7 @@ export class Interpreter {
     address: Address,
     value: bigint,
     data: Uint8Array,
+    memoryPts: MemoryPts,
   ): Promise<bigint> {
     const msg = new Message({
       caller: this._env.address,
@@ -1019,6 +1024,7 @@ export class Interpreter {
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
       accessWitness: this._env.accessWitness,
+      memoryPts,
     })
 
     return this._baseCall(msg)
@@ -1033,6 +1039,7 @@ export class Interpreter {
     address: Address,
     value: bigint,
     data: Uint8Array,
+    memoryPts: MemoryPts,
   ): Promise<bigint> {
     const msg = new Message({
       caller: this._env.caller,
@@ -1046,6 +1053,7 @@ export class Interpreter {
       depth: this._env.depth + 1,
       blobVersionedHashes: this._env.blobVersionedHashes,
       accessWitness: this._env.accessWitness,
+      memoryPts,
     })
 
     return this._baseCall(msg)
@@ -1091,6 +1099,9 @@ export class Interpreter {
         results.execResult.exceptionError.error === ERROR.REVERT)
     ) {
       this._runState.returnBytes = results.execResult.returnValue
+
+      // For synthesizer
+      this._runState.returnMemoryPts = results.execResult.returnMemoryPts
     }
 
     if (!results.execResult.exceptionError) {

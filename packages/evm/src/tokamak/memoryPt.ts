@@ -1,4 +1,7 @@
+import { BIGINT_0, bigIntToBytes, bytesToHex, setLengthLeft, setLengthRight } from '@ethereumjs/util';
+import { Memory } from '../memory.js'
 import type { DataPt } from './synthesizer.js'
+import { RunState } from '../interpreter.js';
 
 /**
  * Memory vs MemoryPt 클래스의 주요 차이점
@@ -35,7 +38,8 @@ import type { DataPt } from './synthesizer.js'
  * @property {number} shift - 비트 이동 수 (양수는 SHL, 음수는 SHR)
  * @property {string} masker - 유효한 바이트를 나타내는 16진수 문자열 (FF) 또는 유효하지 않은 바이트를 나타내는 00
  */
-export type DataAliasInfos = { dataPt: DataPt; shift: number; masker: string }[]
+export type DataAliasInfoEntry = { dataPt: DataPt; shift: number; masker: string }
+export type DataAliasInfos = DataAliasInfoEntry[]
 
 /**
  * 메모리 정보를 나타내는 구조체입니다.
@@ -43,7 +47,7 @@ export type DataAliasInfos = { dataPt: DataPt; shift: number; masker: string }[]
  * @property {number} containerSize - 컨테이너 크기
  * @property {DataPt} dataPt - 데이터 포인터
  */
-type MemoryPtEntry = { memOffset: number; containerSize: number; dataPt: DataPt }
+export type MemoryPtEntry = { memOffset: number; containerSize: number; dataPt: DataPt }
 
 /**
  * 메모리 정보의 배열입니다. 인덱스가 낮을수록 오래된 메모리 정보입니다.
@@ -57,6 +61,7 @@ type TMemoryPt = Map<number, MemoryPtEntry>
 
 /**
  * 데이터 조각 정보를 나타내는 맵입니다.
+ * @property { number } key - 데이터가 메모리에 저장된 타임스탬프
  * @property {Set<number>} originalRange - 원본 데이터 범위
  * @property {Set<number>} validRange - 유효한 데이터 범위
  */
@@ -90,6 +95,63 @@ const setMinus = (A: Set<number>, B: Set<number>): Set<number> => {
     }
   }
   return result
+}
+
+export const simulateMemoryPt = (memoryPts: MemoryPts): MemoryPt => {
+  const simMemPt = new MemoryPt()
+  for (let k=0; k < memoryPts.length; k++){
+    // the lower index, the older data
+    simMemPt.write( 
+      memoryPts[k].memOffset,
+      memoryPts[k].containerSize,
+      memoryPts[k].dataPt
+    )
+  }
+  return simMemPt
+}
+
+const adjustMemoryPts = ( dataPts: DataPt[], memoryPts: MemoryPts, offset: number): void=> {
+  for (const [index, memoryPt] of memoryPts.entries()){
+    const relativeOffset = memoryPt.memOffset - offset
+    memoryPt.memOffset = relativeOffset
+    memoryPt.dataPt = dataPts[index]
+  }
+}
+
+export const copyMemoryRegion = (
+  runState: RunState,
+  offset: bigint,
+  length: bigint,
+  fromMemoryPts?: MemoryPts,
+): MemoryPts => {
+  const offsetNum = Number(offset)
+  const lengthNum = Number(length)
+  let toMemoryPts: MemoryPts
+  if (fromMemoryPts === undefined){
+    toMemoryPts = runState.memoryPt.read(offsetNum, lengthNum)
+  } else {
+    const simFromMemoryPt = simulateMemoryPt(fromMemoryPts)
+    toMemoryPts = simFromMemoryPt.read(offsetNum,lengthNum)
+  }
+  const zeroMemoryPtEntry: MemoryPtEntry = {
+    memOffset: offsetNum,
+    containerSize: lengthNum,
+    dataPt: runState.synthesizer.loadAuxin(BIGINT_0)
+  }
+  if (toMemoryPts.length > 0){
+    const simToMemoryPt = simulateMemoryPt(toMemoryPts)
+    const dataAliasInfos = simToMemoryPt.getDataAlias(offsetNum, lengthNum)
+    if (dataAliasInfos.length > 0){
+      const resolvedDataPts = runState.synthesizer.placeMemoryToMemory(dataAliasInfos)
+      adjustMemoryPts(resolvedDataPts, toMemoryPts, offsetNum)
+    } else {
+      toMemoryPts.push(zeroMemoryPtEntry)  
+    }
+  } else {
+    toMemoryPts.push(zeroMemoryPtEntry)
+  }
+  
+  return toMemoryPts
 }
 
 /*eslint-disable */
@@ -126,7 +188,7 @@ export class MemoryPt {
   /**
    * Writes a byte array with length `size` to memory, starting from `offset`.
    * @param offset - Starting memory position
-   * @param size - How many bytes to write
+   * @param containerSize - How many bytes to write
    * @param dataPt - Data pointer
    */
   write(offset: number, size: number, dataPt: DataPt) {
@@ -145,13 +207,29 @@ export class MemoryPt {
     })
   }
 
-  return(offset: number, length: number): MemoryPts {
+  /**
+   * 특정 메모리 범위에 영향을 주는 _storePt 요소들의 값을 반환합니다 (key 제외). Memory -> Memory으로의 데이터 이동시 사용됨.
+   * @param offset - 읽기 시작할 메모리 위치
+   * @param length - 읽을 바이트 수
+   * @returns {returnMemroyPts}
+   */
+  read(offset: number, length: number, avoidCopy?: boolean): MemoryPts {
     const dataFragments = this._viewMemoryConflict(offset, length)
     const returnMemoryPts: MemoryPts = []
     if (dataFragments.size > 0) {
       const sortedKeys = Array.from(dataFragments.keys()).sort((a, b) => a - b)
       sortedKeys.forEach((key) => {
-        returnMemoryPts.push(this._storePt.get(key)!)
+        if (avoidCopy === true){
+          returnMemoryPts.push(this._storePt.get(key)!)
+        } else{
+          const target = this._storePt.get(key)!
+          const copy: MemoryPtEntry = {
+            memOffset: target.memOffset,
+            containerSize: target.containerSize,
+            dataPt: target.dataPt,
+          }
+          returnMemoryPts.push(copy)
+        }
       })
     }
     return returnMemoryPts
@@ -179,30 +257,64 @@ export class MemoryPt {
     */
 
   /**
-   * 특정 메모리 범위에 대한 데이터 별칭 정보를 반환합니다
+   * 특정 메모리 범위에 대한 데이터 변형 정보를 반환합니다. Memory -> Stack으로의 데이터 이동시 사용됨
    * @param offset - 읽기 시작할 메모리 위치
-   * @param size - 읽을 바이트 수 (32바이트를 초과할 수 없음)
+   * @param size - 읽을 바이트 수
    * @returns {DataAliasInfos}
    */
-  public getDataAlias(offset: number, size: number): DataAliasInfos {
-    if (size > 32) {
-      throw new Error(`The range of memory view exceeds 32 bytes. Try to chunk it in the Handlers.`)
-    }
+  getDataAlias(offset: number, size: number): DataAliasInfos {
+    
+    // if (size > 32) {
+    //   throw new Error(`The range of memory view exceeds 32 bytes. Try to chunk it in the Handlers.`)
+    // }
     const dataAliasInfos: DataAliasInfos = []
     const dataFragments = this._viewMemoryConflict(offset, size)
 
-    for (const [key, value] of dataFragments) {
+    const sortedTimeStamps = Array.from(dataFragments.keys()).sort((a, b) => a - b)
+    for (const timeStamp of sortedTimeStamps){
+      const _value = dataFragments.get(timeStamp)!
       const dataEndOffset =
-        this._storePt.get(key)!.memOffset + this._storePt.get(key)!.containerSize - 1
+        this._storePt.get(timeStamp)!.memOffset + this._storePt.get(timeStamp)!.containerSize - 1
       const viewEndOffset = offset + size - 1
       dataAliasInfos.push({
-        dataPt: this._storePt.get(key)!.dataPt,
+        dataPt: this._storePt.get(timeStamp)!.dataPt,
         // shift가 양의 값이면 SHL, 음의 값이면 SHR
         shift: (viewEndOffset - dataEndOffset) * 8,
-        masker: this._generateMasker(offset, size, value.validRange),
+        masker: this._generateMasker(offset, size, _value.validRange),
       })
     }
     return dataAliasInfos
+  }
+
+  viewMemory(offset: number, length: number): Uint8Array{
+    const BIAS = 0x100000 // Any large number
+    const memoryPts = this.read(offset, length)
+    const simMem = new Memory()
+    for (const memoryPtEntry of memoryPts){
+      const containerOffset = memoryPtEntry.memOffset
+      const containerSize = memoryPtEntry.containerSize
+      const buf = setLengthLeft(bigIntToBytes(memoryPtEntry.dataPt.value),containerSize)      
+      simMem.write(containerOffset + BIAS, containerSize, buf)
+
+      // // Find the offset where nonzero value starts
+      // const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
+      // // If data is in the range
+      // if (storedEndOffset >= offset && storedOffset <= endOffset) {
+      //   const _offset = this._storePt.get(timeStamp)!.memOffset // This data offset can be negative.
+      //   const _containerSize = this._storePt.get(timeStamp)!.containerSize
+      //   const _actualSize = this._storePt.get(timeStamp)!.dataPt.sourceSize
+      //   const value = this._storePt.get(timeStamp)!.dataPt.value
+      //   let valuePadded = setLengthLeft(bigIntToBytes(value), _actualSize)
+      //   if (_containerSize < _actualSize){
+      //     valuePadded = valuePadded.slice(0, _containerSize)
+      //   }
+      //   console.log(bytesToHex(valuePadded))
+      //   simMem.write(_offset + BIAS, Math.min(_containerSize, _actualSize), valuePadded)
+      // }
+    }
+    
+    return simMem.read(offset + BIAS, length)
+
   }
 
   /**
@@ -221,7 +333,7 @@ export class MemoryPt {
       const containerOffset = this._storePt.get(timeStamp)!.memOffset
       const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
       // Find the offset where nonzero value starts
-      const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.actualSize + 1
+      const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
       const sortedTimeStamps_firsts = sortedTimeStamps.slice(0, i)
       // If data is in the range
       if (storedEndOffset >= offset && storedOffset <= endOffset) {

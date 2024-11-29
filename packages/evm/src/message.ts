@@ -4,6 +4,7 @@ import type { PrecompileFunc } from './precompiles/index.js'
 import type { EOFEnv } from './types.js'
 import type { VerkleAccessWitnessInterface } from '@ethereumjs/common'
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
+import { MemoryPts } from './tokamak/memoryPt.js'
 
 const defaults = {
   value: BIGINT_0,
@@ -41,6 +42,7 @@ interface MessageOpts {
   gasRefund?: bigint
   blobVersionedHashes?: PrefixedHexString[]
   accessWitness?: VerkleAccessWitnessInterface
+  memoryPts?: MemoryPts
 }
 
 export class Message {
@@ -59,6 +61,7 @@ export class Message {
   salt?: Uint8Array
   eof?: EOFEnv
   chargeCodeAccesses?: boolean
+  memoryPts?: MemoryPts
   /**
    * Set of addresses to selfdestruct. Key is the unprefixed address.
    */
@@ -94,6 +97,7 @@ export class Message {
     this.gasRefund = opts.gasRefund ?? defaults.gasRefund
     this.blobVersionedHashes = opts.blobVersionedHashes
     this.accessWitness = opts.accessWitness
+    this.memoryPts = opts.memoryPts ?? []
     if (this.value < 0) {
       throw new Error(`value field cannot be negative, received ${this.value}`)
     }

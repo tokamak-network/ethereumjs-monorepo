@@ -14,6 +14,7 @@ import type {
 } from '@ethereumjs/common'
 import type { Account, Address, PrefixedHexString } from '@ethereumjs/util'
 import type { EventEmitter } from 'eventemitter3'
+import { MemoryPts } from './tokamak/memoryPt.js'
 
 export type DeleteOpcode = {
   opcode: number
@@ -418,6 +419,7 @@ export interface ExecResult {
    * Amount of blob gas consumed by the transaction
    */
   blobGasUsed?: bigint
+  returnMemoryPts: MemoryPts
 }
 
 /**
