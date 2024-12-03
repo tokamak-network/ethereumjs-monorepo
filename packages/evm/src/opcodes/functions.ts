@@ -4,7 +4,6 @@ import {
   BIGINT_1,
   BIGINT_160,
   BIGINT_2,
-  
   BIGINT_224,
   BIGINT_255,
   BIGINT_256,
@@ -34,6 +33,7 @@ import { EOFContainer, EOFContainerMode } from '../eof/container.js'
 import { EOFError } from '../eof/errors.js'
 import { EOFBYTES, EOFHASH, isEOF } from '../eof/util.js'
 import { ERROR } from '../exceptions.js'
+import { MemoryPt, copyMemoryRegion, simulateMemoryPt } from '../tokamak/memoryPt.js'
 import { DELEGATION_7702_FLAG } from '../types.js'
 
 import {
@@ -49,12 +49,10 @@ import {
   writeCallOutput,
 } from './util.js'
 
-import { copyMemoryRegion, MemoryPt, simulateMemoryPt } from '../tokamak/memoryPt.js'
-
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/memoryPt.js'
+import type { DataPt } from '../tokamak/synthesizer.js'
 import type { Common } from '@ethereumjs/common'
-import { DataPt } from '../tokamak/synthesizer.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -80,7 +78,6 @@ async function eip7702CodeCheck(runState: RunState, code: Uint8Array) {
 
   return code
 }
-
 
 // the opcode functions
 export const handlers: Map<number, OpHandler> = new Map([
@@ -649,13 +646,13 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For synthesizer
       const _pos = runState.stackPt.pop().value
-      if ( _pos != pos ){
+      if (_pos != pos) {
         throw new Error(`Synthesizer: CALLDATALOAD: Input data mismatch`)
       }
-      
+
       const calldataMemoryPts = runState.interpreter._env.callMemoryPts
       let dataPtToLoad: DataPt
-      if (calldataMemoryPts.length > 0){
+      if (calldataMemoryPts.length > 0) {
         // Case: The calldata is originated from the parent context
 
         // Simulate a MemoryPt for the calldata
@@ -664,10 +661,10 @@ export const handlers: Map<number, OpHandler> = new Map([
         const calldataSize = runState.interpreter.getCallDataSize()
         const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32)
 
-        if (dataAliasInfos.length > 0){
+        if (dataAliasInfos.length > 0) {
           // Case: The data to load is originated from the parent context
 
-          dataPtToLoad = runState.synthesizer.placeMemoryToStack(dataAliasInfos) 
+          dataPtToLoad = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
         } else {
           // Case: The data to load is not originated from the parent context => 0 is loaded from 'auxin'
           dataPtToLoad = runState.synthesizer.loadAuxin(BIGINT_0)
@@ -675,10 +672,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       } else {
         // Case: The calldata is originated from Environmental Information
         dataPtToLoad = runState.synthesizer.loadEnvInf('calldata', r, i)
-      }      
+      }
       runState.stackPt.push(dataPtToLoad)
 
-      if ( runState.stack.peek(1)[0] != runState.stackPt.peek(1)[0].value ){
+      if (runState.stack.peek(1)[0] != runState.stackPt.peek(1)[0].value) {
         throw new Error(`Synthesizer: CALLDATALOAD: Output data mismatch`)
       }
     },
@@ -713,13 +710,17 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         // For synthesizer
         const [_memOffset, _dataOffset, _dataLength] = runState.stackPt.popN(3)
-        if ( (_memOffset.value != memOffset) || (_dataOffset.value != dataOffset) || (_dataLength.value != dataLength) ){
+        if (
+          _memOffset.value != memOffset ||
+          _dataOffset.value != dataOffset ||
+          _dataLength.value != dataLength
+        ) {
           throw new Error(`Synthesizer: CALLDATACOPY: Input data mismatch`)
         }
         const dataOffsetNum = Number(dataOffset)
         const calldataMemoryPts = runState.interpreter._env.callMemoryPts
         let memoryPtsToCopy: MemoryPts = []
-        if (calldataMemoryPts.length > 0){
+        if (calldataMemoryPts.length > 0) {
           // Case: The calldata is originated from the parent context
           memoryPtsToCopy = copyMemoryRegion(runState, dataOffset, dataLength, calldataMemoryPts)
         } else {
@@ -727,23 +728,24 @@ export const handlers: Map<number, OpHandler> = new Map([
           const entryToCopy: MemoryPtEntry = {
             memOffset: 0,
             containerSize: dataLengthNum,
-            dataPt: runState.synthesizer.loadEnvInf('calldata', bytesToBigInt(data), dataOffsetNum, dataLengthNum),
+            dataPt: runState.synthesizer.loadEnvInf(
+              'calldata',
+              bytesToBigInt(data),
+              dataOffsetNum,
+              dataLengthNum,
+            ),
           }
           memoryPtsToCopy.push(entryToCopy)
         }
 
-        for (const entry of memoryPtsToCopy){
+        for (const entry of memoryPtsToCopy) {
           // the lower index, the older data
-          runState.memoryPt.write(
-            memOffsetNum + entry.memOffset,
-            entry.containerSize,
-            entry.dataPt
-          )
+          runState.memoryPt.write(memOffsetNum + entry.memOffset, entry.containerSize, entry.dataPt)
         }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
       const outData = runState.memory.read(Number(memOffset), Number(dataLength))
-      if (!equalsBytes(_outData, outData)){
+      if (!equalsBytes(_outData, outData)) {
         throw new Error(`Synthesizer: CALLDATACOPY: Output data mismatch`)
       }
     },
@@ -1044,7 +1046,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For Synthesizer //
       const loadSize = 32
       const offsetPt = runState.stackPt.pop()
-      if (pos != offsetPt.value){
+      if (pos != offsetPt.value) {
         throw new Error(`Synthesizer: MLOAD: Input data mismatch`)
       }
       const offsetNum = Number(offsetPt.value)
@@ -1307,7 +1309,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.env.address.toString(),
         runState.programCounterPrev,
         BIGINT_0,
-        1
+        1,
       )
       runState.stackPt.push(dataPt)
     },
@@ -1354,10 +1356,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.env.address.toString(),
         runState.programCounterPrev,
         value,
-        numToPush
+        numToPush,
       )
       runState.stackPt.push(dataPt)
-
     },
   ],
   // 0x80: DUP
@@ -1847,27 +1848,35 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For synthesizer
       const [__currentGasLimit, _toAddr, _value, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(7)
-      if ( __currentGasLimit.value != _currentGasLimit ||
+      if (
+        __currentGasLimit.value != _currentGasLimit ||
         _toAddr.value != toAddr ||
         _value.value != value ||
         _inOffset.value != inOffset ||
         _inLength.value != inLength ||
         _outOffset.value != outOffset ||
-        _outLength.value != outLength ){
-          throw new Error(`Synthesizer: CALL: Input data mismatch`)
-        }
+        _outLength.value != outLength
+      ) {
+        throw new Error(`Synthesizer: CALL: Input data mismatch`)
+      }
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
-      
+
       // for debugging
       const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
       const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
-      if (!equalsBytes(_data, data)){
+      if (!equalsBytes(_data, data)) {
         throw new Error(`Synthesizer: CALL: Output data mismatch`)
       }
       ////
 
-      const ret = await runState.interpreter.call(gasLimit, toAddress, value, data, calldataMemoryPts)
-    
+      const ret = await runState.interpreter.call(
+        gasLimit,
+        toAddress,
+        value,
+        data,
+        calldataMemoryPts,
+      )
+
       // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
@@ -1898,27 +1907,35 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For synthesizer
       const [__currentGasLimit, _toAddr, _value, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(7)
-      if ( __currentGasLimit.value != _currentGasLimit ||
+      if (
+        __currentGasLimit.value != _currentGasLimit ||
         _toAddr.value != toAddr ||
         _value.value != value ||
         _inOffset.value != inOffset ||
         _inLength.value != inLength ||
         _outOffset.value != outOffset ||
-        _outLength.value != outLength ){
-          throw new Error(`Synthesizer: CALLCODE: Input data mismatch`)
-        }
+        _outLength.value != outLength
+      ) {
+        throw new Error(`Synthesizer: CALLCODE: Input data mismatch`)
+      }
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
-      
+
       // for debugging
       const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
       const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
-      if (!equalsBytes(_data, data)){
+      if (!equalsBytes(_data, data)) {
         throw new Error(`Synthesizer: CALLCODE: Output data mismatch`)
       }
       ////
 
-      const ret = await runState.interpreter.callCode(gasLimit, toAddress, value, data, calldataMemoryPts)
-      
+      const ret = await runState.interpreter.callCode(
+        gasLimit,
+        toAddress,
+        value,
+        data,
+        calldataMemoryPts,
+      )
+
       // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
@@ -1944,27 +1961,35 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For synthesizer
       const [__currentGasLimit, _toAddr, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(6)
-      if ( __currentGasLimit.value != _currentGasLimit ||
+      if (
+        __currentGasLimit.value != _currentGasLimit ||
         _toAddr.value != toAddr ||
         _inOffset.value != inOffset ||
         _inLength.value != inLength ||
         _outOffset.value != outOffset ||
-        _outLength.value != outLength ){
-          throw new Error(`Synthesizer: DELEGATECALL: Input data mismatch`)
-        }
-      
+        _outLength.value != outLength
+      ) {
+        throw new Error(`Synthesizer: DELEGATECALL: Input data mismatch`)
+      }
+
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
-      
+
       // for debugging
       const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
       const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
-      if (!equalsBytes(_data, data)){
+      if (!equalsBytes(_data, data)) {
         throw new Error(`Synthesizer: DELEGATECALL: Output data mismatch`)
       }
-      ////        
+      ////
 
-      const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data, calldataMemoryPts)
-      
+      const ret = await runState.interpreter.callDelegate(
+        gasLimit,
+        toAddress,
+        value,
+        data,
+        calldataMemoryPts,
+      )
+
       // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
@@ -2044,7 +2069,13 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         // dataPts for Synthesizer
         const dataPts = runState.memoryPt.read(Number(inOffset), Number(inLength))
-        const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data, dataPts)
+        const ret = await runState.interpreter.callDelegate(
+          gasLimit,
+          toAddress,
+          value,
+          data,
+          dataPts,
+        )
         runState.stack.push(ret)
       }
     },
@@ -2069,27 +2100,34 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For synthesizer
       const [__currentGasLimit, _toAddr, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(6)
-      if ( __currentGasLimit.value != _currentGasLimit ||
+      if (
+        __currentGasLimit.value != _currentGasLimit ||
         _toAddr.value != toAddr ||
         _inOffset.value != inOffset ||
         _inLength.value != inLength ||
         _outOffset.value != outOffset ||
-        _outLength.value != outLength ){
-          throw new Error(`Synthesizer: STATICCALL: Input data mismatch`)
-        }
+        _outLength.value != outLength
+      ) {
+        throw new Error(`Synthesizer: STATICCALL: Input data mismatch`)
+      }
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
-      
-      
+
       // for debugging
       const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
       const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
-      if (!equalsBytes(_data, data)){
+      if (!equalsBytes(_data, data)) {
         throw new Error(`Synthesizer: STATICCALL: Output data mismatch`)
       }
       ////
 
-      const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data, calldataMemoryPts)
-      
+      const ret = await runState.interpreter.callStatic(
+        gasLimit,
+        toAddress,
+        value,
+        data,
+        calldataMemoryPts,
+      )
+
       // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
@@ -2139,19 +2177,19 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (length !== BIGINT_0) {
         returnData = runState.memory.read(Number(offset), Number(length))
       }
-      
+
       // For Synthesizer
       const [_offset, _length] = runState.stackPt.popN(2)
-      if (_offset.value != offset || _length.value != length){
+      if (_offset.value != offset || _length.value != length) {
         throw new Error(`Synthesizer: RETURN: Input data mismatch`)
       }
       const returnMemoryPts = copyMemoryRegion(runState, offset, length)
       runState.interpreter.finishPt(returnMemoryPts)
-      
+
       // for debugging
       const simMemoryPt = simulateMemoryPt(returnMemoryPts)
       const _returnData = simMemoryPt.viewMemory(Number(offset), Number(length))
-      if (!equalsBytes(_returnData, returnData)){
+      if (!equalsBytes(_returnData, returnData)) {
         throw new Error(`Synthesizer: RETURN: Output data mismatch`)
       }
       // Halt the current code run

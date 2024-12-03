@@ -1,3 +1,5 @@
+import type { PlacementEntry, Placements } from './type.js'
+
 export const powMod = (base: bigint, exponent: bigint, modulus: bigint): bigint => {
   if (modulus === 1n) return 0n
 
@@ -12,4 +14,20 @@ export const powMod = (base: bigint, exponent: bigint, modulus: bigint): bigint 
     exponent = exponent >> 1n
   }
   return result
+}
+
+export const byteSize = (value: bigint): number => {
+  const hexLength = value.toString(16).length
+  return Math.max(Math.ceil(hexLength / 2), 1)
+}
+
+export const addPlacement = (map: Placements, value: PlacementEntry) => {
+  const key = map.size
+  map.set(key, value)
+}
+
+// 부호 있는 정수로 변환 (256비트)
+export const convertToSigned = (value: bigint): bigint => {
+  const mask = 1n << 255n
+  return value & mask ? value - (1n << 256n) : value
 }

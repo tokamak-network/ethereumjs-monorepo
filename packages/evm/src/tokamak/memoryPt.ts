@@ -1,7 +1,15 @@
-import { BIGINT_0, bigIntToBytes, bytesToHex, setLengthLeft, setLengthRight } from '@ethereumjs/util';
+import {
+  BIGINT_0,
+  bigIntToBytes,
+  bytesToHex,
+  setLengthLeft,
+  setLengthRight,
+} from '@ethereumjs/util'
+
 import { Memory } from '../memory.js'
+
+import type { RunState } from '../interpreter.js'
 import type { DataPt } from './synthesizer.js'
-import { RunState } from '../interpreter.js';
 
 /**
  * Memory vs MemoryPt 클래스의 주요 차이점
@@ -99,19 +107,15 @@ const setMinus = (A: Set<number>, B: Set<number>): Set<number> => {
 
 export const simulateMemoryPt = (memoryPts: MemoryPts): MemoryPt => {
   const simMemPt = new MemoryPt()
-  for (let k=0; k < memoryPts.length; k++){
+  for (let k = 0; k < memoryPts.length; k++) {
     // the lower index, the older data
-    simMemPt.write( 
-      memoryPts[k].memOffset,
-      memoryPts[k].containerSize,
-      memoryPts[k].dataPt
-    )
+    simMemPt.write(memoryPts[k].memOffset, memoryPts[k].containerSize, memoryPts[k].dataPt)
   }
   return simMemPt
 }
 
-const adjustMemoryPts = ( dataPts: DataPt[], memoryPts: MemoryPts, offset: number): void=> {
-  for (const [index, memoryPt] of memoryPts.entries()){
+const adjustMemoryPts = (dataPts: DataPt[], memoryPts: MemoryPts, offset: number): void => {
+  for (const [index, memoryPt] of memoryPts.entries()) {
     const relativeOffset = memoryPt.memOffset - offset
     memoryPt.memOffset = relativeOffset
     memoryPt.dataPt = dataPts[index]
@@ -127,30 +131,30 @@ export const copyMemoryRegion = (
   const offsetNum = Number(offset)
   const lengthNum = Number(length)
   let toMemoryPts: MemoryPts
-  if (fromMemoryPts === undefined){
+  if (fromMemoryPts === undefined) {
     toMemoryPts = runState.memoryPt.read(offsetNum, lengthNum)
   } else {
     const simFromMemoryPt = simulateMemoryPt(fromMemoryPts)
-    toMemoryPts = simFromMemoryPt.read(offsetNum,lengthNum)
+    toMemoryPts = simFromMemoryPt.read(offsetNum, lengthNum)
   }
   const zeroMemoryPtEntry: MemoryPtEntry = {
     memOffset: offsetNum,
     containerSize: lengthNum,
-    dataPt: runState.synthesizer.loadAuxin(BIGINT_0)
+    dataPt: runState.synthesizer.loadAuxin(BIGINT_0),
   }
-  if (toMemoryPts.length > 0){
+  if (toMemoryPts.length > 0) {
     const simToMemoryPt = simulateMemoryPt(toMemoryPts)
     const dataAliasInfos = simToMemoryPt.getDataAlias(offsetNum, lengthNum)
-    if (dataAliasInfos.length > 0){
+    if (dataAliasInfos.length > 0) {
       const resolvedDataPts = runState.synthesizer.placeMemoryToMemory(dataAliasInfos)
       adjustMemoryPts(resolvedDataPts, toMemoryPts, offsetNum)
     } else {
-      toMemoryPts.push(zeroMemoryPtEntry)  
+      toMemoryPts.push(zeroMemoryPtEntry)
     }
   } else {
     toMemoryPts.push(zeroMemoryPtEntry)
   }
-  
+
   return toMemoryPts
 }
 
@@ -219,9 +223,9 @@ export class MemoryPt {
     if (dataFragments.size > 0) {
       const sortedKeys = Array.from(dataFragments.keys()).sort((a, b) => a - b)
       sortedKeys.forEach((key) => {
-        if (avoidCopy === true){
+        if (avoidCopy === true) {
           returnMemoryPts.push(this._storePt.get(key)!)
-        } else{
+        } else {
           const target = this._storePt.get(key)!
           const copy: MemoryPtEntry = {
             memOffset: target.memOffset,
@@ -263,7 +267,6 @@ export class MemoryPt {
    * @returns {DataAliasInfos}
    */
   getDataAlias(offset: number, size: number): DataAliasInfos {
-    
     // if (size > 32) {
     //   throw new Error(`The range of memory view exceeds 32 bytes. Try to chunk it in the Handlers.`)
     // }
@@ -271,7 +274,7 @@ export class MemoryPt {
     const dataFragments = this._viewMemoryConflict(offset, size)
 
     const sortedTimeStamps = Array.from(dataFragments.keys()).sort((a, b) => a - b)
-    for (const timeStamp of sortedTimeStamps){
+    for (const timeStamp of sortedTimeStamps) {
       const _value = dataFragments.get(timeStamp)!
       const dataEndOffset =
         this._storePt.get(timeStamp)!.memOffset + this._storePt.get(timeStamp)!.containerSize - 1
@@ -286,14 +289,14 @@ export class MemoryPt {
     return dataAliasInfos
   }
 
-  viewMemory(offset: number, length: number): Uint8Array{
+  viewMemory(offset: number, length: number): Uint8Array {
     const BIAS = 0x100000 // Any large number
     const memoryPts = this.read(offset, length)
     const simMem = new Memory()
-    for (const memoryPtEntry of memoryPts){
+    for (const memoryPtEntry of memoryPts) {
       const containerOffset = memoryPtEntry.memOffset
       const containerSize = memoryPtEntry.containerSize
-      const buf = setLengthLeft(bigIntToBytes(memoryPtEntry.dataPt.value),containerSize)      
+      const buf = setLengthLeft(bigIntToBytes(memoryPtEntry.dataPt.value), containerSize)
       simMem.write(containerOffset + BIAS, containerSize, buf)
 
       // // Find the offset where nonzero value starts
@@ -312,9 +315,8 @@ export class MemoryPt {
       //   simMem.write(_offset + BIAS, Math.min(_containerSize, _actualSize), valuePadded)
       // }
     }
-    
-    return simMem.read(offset + BIAS, length)
 
+    return simMem.read(offset + BIAS, length)
   }
 
   /**

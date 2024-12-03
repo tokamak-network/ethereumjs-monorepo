@@ -1,94 +1,20 @@
 import { subcircuits } from './subcircuit_info.js'
-import { powMod } from './utils.js'
-import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from './memoryPt.js'
-import type { RunState } from '../interpreter.js'
+import { addPlacement, convertToSigned, powMod } from './utils.js'
 
+import type { RunState } from '../interpreter.js'
+import type { DataAliasInfoEntry, DataAliasInfos } from './memoryPt.js'
+import type { DataPt, Placements } from './type.js'
 
 /**
  * @TODO
- * 
+ *
  * 1. loadSubcircuit을 분할
  *  -> 1-1. public load
  *    -> envirmental information, 최종 출력, auxin 데이터
- *    -> 
+ *    ->
  *  -> 1-2. private load
  *    -> 바이트 코드 데이터
- /
-
-
- * @property {number} subcircuitId - 서브서킷의 식별자.
- * @property {number} nWire - 서브서킷의 와이어 수.
- * @property {number} outIdx - 출력 인덱스.
- * @property {number} nOut - 출력의 수.
- * @property {number} inIdx - 입력 인덱스.
- * @property {number} nIn - 입력의 수.
  */
-export type SubcircuitCode = {
-  subcircuitId: number
-  nWire: number
-  outIdx: number
-  nOut: number
-  inIdx: number
-  nIn: number
-}
-
-/**
- * @property {number} code - 서브서킷 코드.
- * @property {string} name - 서브서킷 이름.
- * @property {number} nWire - 서브서킷의 와이어 수.
- * @property {number} outIdx - 출력 인덱스.
- * @property {number} nOut - 출력의 수.
- * @property {number} inIdx - 입력 인덱스.
- * @property {number} nIn - 입력의 수.
- */
-export type SubcircuitId = {
-  code: number
-  name: string
-  nWire: number
-  outIdx: number
-  nOut: number
-  inIdx: number
-  nIn: number
-}
-
-/**
- * @property {string | number} source - 데이터 소스의 식별자. 문자열 또는 숫자.
- * @property {number} sourceOffset - 데이터 소스 내에서의 위치를 나타내는 오프셋.
- * @property {number} sourceSize - 데이터의 실제 크기.
- * @property {bigint} value - 데이터 값.
- * @property {string} valuestr - 데이터 값을 16진수 문자열로 표현한 값.
- */
-export type DataPt = {
-  source: string | number
-  sourceIndex: number
-  sourceSize: number
-  value: bigint
-  valueHex: string
-}
-
-type PlacementEntry = {
-  name: string
-  inPts: DataPt[]
-  outPts: DataPt[]
-}
-
-type Placements = Map<number, PlacementEntry>
-
-const byteSize = (value: bigint): number => {
-  const hexLength = value.toString(16).length
-  return Math.max(Math.ceil(hexLength / 2), 1)
-}
-
-const mapPush = (map: Placements, value: PlacementEntry) => {
-  const key = map.size
-  map.set(key, value)
-}
-
-// 부호 있는 정수로 변환 (256비트)
-const convertToSigned = (value: bigint): bigint => {
-  const mask = 1n << 255n
-  return value & mask ? value - (1n << 256n) : value
-}
 
 /**
  * Synthesizer 클래스는 서브서킷과 관련된 데이터를 관리합니다.
@@ -126,7 +52,12 @@ export class Synthesizer {
    * @param {bigint} value - 데이터 값.
    * @returns {DataPt} 생성된 데이터 포인트.
    */
-  public newDataPt(sourceId: number | string, sourceIndex: number, value: bigint, sourceSize: number): DataPt {
+  public newDataPt(
+    sourceId: number | string,
+    sourceIndex: number,
+    value: bigint,
+    sourceSize: number,
+  ): DataPt {
     /**
      * 생성된 데이터 포인트를 나타내는 변수입니다.
      *
@@ -154,8 +85,18 @@ export class Synthesizer {
    * @param {bigint} value - PUSH 입력 인자의 값.
    * @returns {void}
    */
-  public loadPUSH(codeAddress: string, programCounter: number, value: bigint, size: number): DataPt {
-    const pointerIn: DataPt = this.newDataPt(`code: ${codeAddress}`, programCounter + 1, value, size)
+  public loadPUSH(
+    codeAddress: string,
+    programCounter: number,
+    value: bigint,
+    size: number,
+  ): DataPt {
+    const pointerIn: DataPt = this.newDataPt(
+      `code: ${codeAddress}`,
+      programCounter + 1,
+      value,
+      size,
+    )
 
     // 기존 output list에 이어서 추가
     const outOffset = this.placements.get(0)!.outPts.length
@@ -165,6 +106,7 @@ export class Synthesizer {
 
     return this.placements.get(0)!.outPts[outOffset]
   }
+
   public loadAuxin(value: bigint): DataPt {
     this.auxin.push(value)
     const auxinIndex = this.auxin.length - 1
@@ -181,7 +123,7 @@ export class Synthesizer {
   }
 
   public loadEnvInf(source: string, value: bigint, offset?: number, size?: number): DataPt {
-    this.envInf.set(source,value)
+    this.envInf.set(source, value)
     const index = offset ?? 0
     const sourceSize = size ?? 32
     const pointerIn = this.newDataPt(source, index, value, sourceSize)
@@ -226,10 +168,7 @@ export class Synthesizer {
       const outValue = dataPt.value & BigInt(maskerString)
       if (dataPt.value !== outValue) {
         const subcircuitName = 'AND'
-        const inPts: DataPt[] = [
-          this.loadAuxin(BigInt(maskerString)),
-          dataPt,
-        ]
+        const inPts: DataPt[] = [this.loadAuxin(BigInt(maskerString)), dataPt]
         const outPts: DataPt[] = [this.newDataPt(this.placementIndex, 0, outValue, truncSize)]
         this._place(subcircuitName, inPts, outPts)
 
@@ -254,12 +193,12 @@ export class Synthesizer {
     }
     return this._resolveDataAlias(dataAliasInfos)
   }
-  
+
   public placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[] {
     if (dataAliasInfos.length === 0) {
       throw new Error(`Synthesizer: placeMemoryToMemory: Nothing to load`)
     }
-    let copiedDataPts: DataPt[] = []
+    const copiedDataPts: DataPt[] = []
     for (const info of dataAliasInfos) {
       // the lower index, the older data
       copiedDataPts.push(this._applyMask(info, true))
@@ -324,9 +263,17 @@ export class Synthesizer {
   //   return outPt
   // }
 
+  //# TODO: newDataPt size 변수 검증 필요
+  /**
+   * CALLDATALOAD 배치를 추가합니다.
+   *
+   * @param {RunState} runState - 실행 상태 객체.
+   * @param {bigint} offset - 호출 데이터의 시작 오프셋.
+   * @returns {DataPt} 생성된 데이터 포인트.
+   *
+   */
   public newPlacementCALLDATALOAD(runState: RunState, offset: bigint) {
-    console.log('****newPlacementCALLDATALOAD****')
-    const inPt = this.newDataPt('offset', 0, offset)
+    const inPt = this.newDataPt('offset', 0, offset, 32)
 
     // Get calldata slice and convert to bigint
     const calldata = runState.interpreter.getCallData()
@@ -338,17 +285,24 @@ export class Synthesizer {
       .join('')
     const value = BigInt('0x' + hexString)
 
-    const outPt = this.newDataPt(this.placementIndex, Number(offset), value)
-
-    console.log('inputs', inPt)
-    console.log('outputs', outPt)
+    const outPt = this.newDataPt(this.placementIndex, Number(offset), value, 32)
 
     // Place the subcircuit
     this._place('CALLDATALOAD', [inPt], [outPt])
 
-    console.log(this.placements)
-
     return outPt
+  }
+
+  private handleBinaryOp(
+    name: string,
+    inPts: DataPt[],
+    operation: (a: bigint, b: bigint) => bigint,
+  ): DataPt[] {
+    this.validateInputCount(name, inPts.length, 2)
+    const outValue = operation(inPts[0].value, inPts[1].value)
+    const outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    this._place(name, inPts, outPts)
+    return outPts
   }
 
   /**
@@ -617,19 +571,6 @@ export class Synthesizer {
         break
       }
 
-      //         LT 연산 후의 상태를 보니:
-      // EVM 상태:
-      // LT 실행 후 스택: ["0x0"]
-      // 4 < 36 비교의 결과가 0 (false)으로 나옴
-      // 이는 잘못된 결과로 보임. 4 < 36은 true여야 함
-      // 2. Circuit 상태:
-      // LT placement가 추가됨:
-      // }
-      // 문제점:
-      // LT 연산의 입력 순서가 잘못된 것 같습니다
-      // 4 < 36이 아닌 36 < 4로 비교된 것으로 보임
-      // 이것이 첫 번째로 발견된 불일치입니다
-      // 여기서부터 EVM의 실행과 Circuit의 상태가 달라지기 시작했습니다. 다음 스택 변화를 보여주세요.
       case 'LT': {
         const nInputs = 2
         if (inPts.length !== nInputs) {
@@ -899,18 +840,18 @@ export class Synthesizer {
     }
   }
 
-  private _applyShiftAndMask(info: DataAliasInfoEntry): DataPt{
+  private _applyShiftAndMask(info: DataAliasInfoEntry): DataPt {
     let shiftOutPt = info.dataPt
     shiftOutPt = this._applyShift(info)
     const modInfo: DataAliasInfoEntry = {
       dataPt: shiftOutPt,
       masker: info.masker,
-      shift: info.shift
+      shift: info.shift,
     }
     let maskOutPt = modInfo.dataPt
     maskOutPt = this._applyMask(modInfo)
     return maskOutPt
-}
+  }
 
   /**
    * shift 연산을 적용합니다.
@@ -926,11 +867,8 @@ export class Synthesizer {
       // shift 값과 shift 방향과의 관계는 MemoryPt에서 정의하였음
       const subcircuitName: string = shift > 0 ? 'SHL' : 'SHR'
       const absShift = Math.abs(shift)
-      const inPts: DataPt[] = [
-        this.loadAuxin(BigInt(absShift)),
-        dataPt,
-      ]
-      outPts = this.placeArith(subcircuitName,inPts)      
+      const inPts: DataPt[] = [this.loadAuxin(BigInt(absShift)), dataPt]
+      outPts = this.placeArith(subcircuitName, inPts)
     }
     return outPts[0]
   }
@@ -944,20 +882,19 @@ export class Synthesizer {
   private _applyMask(info: DataAliasInfoEntry, unshift?: boolean): DataPt {
     let masker = info.masker
     const { shift, dataPt } = info
-    if (unshift === true){
+    if (unshift === true) {
       const maskerBigint = BigInt(masker)
-      const unshiftMaskerBigint = shift > 0 ? maskerBigint >> BigInt(Math.abs(shift)) : maskerBigint << BigInt(Math.abs(shift))
+      const unshiftMaskerBigint =
+        shift > 0
+          ? maskerBigint >> BigInt(Math.abs(shift))
+          : maskerBigint << BigInt(Math.abs(shift))
       masker = '0x' + unshiftMaskerBigint.toString(16)
     }
     const maskOutValue = dataPt.value & BigInt(masker)
     let outPts = [dataPt]
     if (maskOutValue !== dataPt.value) {
-      const inPts: DataPt[] = [
-        this.loadAuxin(BigInt(masker)),
-        dataPt,
-      ]
+      const inPts: DataPt[] = [this.loadAuxin(BigInt(masker)), dataPt]
       outPts = this.placeArith('AND', inPts)
-          
     }
     return outPts[0]
   }
@@ -987,7 +924,7 @@ export class Synthesizer {
     if (!this.subcircuitNames.includes(name)) {
       throw new Error(`Subcircuit name ${name} is not defined`)
     }
-    mapPush(this.placements, {
+    addPlacement(this.placements, {
       name,
       inPts,
       outPts,
