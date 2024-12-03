@@ -1,5 +1,6 @@
 import { subcircuits } from './subcircuit_info.js'
 import { addPlacement, convertToSigned, powMod } from './utils.js'
+import { SynthesizerValidator } from './validator.js'
 
 import type { RunState } from '../interpreter.js'
 import type { DataAliasInfoEntry, DataAliasInfos } from './memoryPt.js'
@@ -298,7 +299,9 @@ export class Synthesizer {
     inPts: DataPt[],
     operation: (a: bigint, b: bigint) => bigint,
   ): DataPt[] {
-    this.validateInputCount(name, inPts.length, 2)
+    SynthesizerValidator.validateInputCount(name, inPts.length, 2)
+    SynthesizerValidator.validateInputs(inPts)
+
     const outValue = operation(inPts[0].value, inPts[1].value)
     const outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
     this._place(name, inPts, outPts)

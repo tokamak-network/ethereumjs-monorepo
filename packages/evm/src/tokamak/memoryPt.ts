@@ -1,9 +1,9 @@
 import {
   BIGINT_0,
   bigIntToBytes,
-  bytesToHex,
+  // bytesToHex,
   setLengthLeft,
-  setLengthRight,
+  // setLengthRight,
 } from '@ethereumjs/util'
 
 import { Memory } from '../memory.js'

@@ -33,7 +33,7 @@ import { EOFContainer, EOFContainerMode } from '../eof/container.js'
 import { EOFError } from '../eof/errors.js'
 import { EOFBYTES, EOFHASH, isEOF } from '../eof/util.js'
 import { ERROR } from '../exceptions.js'
-import { MemoryPt, copyMemoryRegion, simulateMemoryPt } from '../tokamak/memoryPt.js'
+import { copyMemoryRegion, simulateMemoryPt } from '../tokamak/memoryPt.js'
 import { DELEGATION_7702_FLAG } from '../types.js'
 
 import {
@@ -646,7 +646,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For synthesizer
       const _pos = runState.stackPt.pop().value
-      if (_pos != pos) {
+      if (_pos !== pos) {
         throw new Error(`Synthesizer: CALLDATALOAD: Input data mismatch`)
       }
 
@@ -658,7 +658,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         // Simulate a MemoryPt for the calldata
         const calldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
         // View the memory and get the alias info
-        const calldataSize = runState.interpreter.getCallDataSize()
+        // const calldataSize = runState.interpreter.getCallDataSize()
         const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32)
 
         if (dataAliasInfos.length > 0) {
@@ -675,7 +675,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       runState.stackPt.push(dataPtToLoad)
 
-      if (runState.stack.peek(1)[0] != runState.stackPt.peek(1)[0].value) {
+      if (runState.stack.peek(1)[0] !== runState.stackPt.peek(1)[0].value) {
         throw new Error(`Synthesizer: CALLDATALOAD: Output data mismatch`)
       }
     },
@@ -711,9 +711,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         // For synthesizer
         const [_memOffset, _dataOffset, _dataLength] = runState.stackPt.popN(3)
         if (
-          _memOffset.value != memOffset ||
-          _dataOffset.value != dataOffset ||
-          _dataLength.value != dataLength
+          _memOffset.value !== memOffset ||
+          _dataOffset.value !== dataOffset ||
+          _dataLength.value !== dataLength
         ) {
           throw new Error(`Synthesizer: CALLDATACOPY: Input data mismatch`)
         }
