@@ -1,3 +1,4 @@
+import { DataPointFactory } from './DataPointFactory.js'
 import { OPERATION_MAPPING } from './arithmetic.js'
 import { DEFAULT_SOURCE_SIZE, INITIAL_PLACEMENT, INITIAL_PLACEMENT_INDEX } from './constants.js'
 import { InvalidInputCountError, SynthesizerError } from './errors.js'
@@ -47,39 +48,6 @@ export class Synthesizer {
   }
 
   /**
-   * 새로운 데이터 포인트를 생성합니다.
-   *
-   * @param {number | string} source - 데이터 소스의 식별자.
-   * @param {number} sourceOffset - 데이터 소스 내에서의 위치를 나타내는 오프셋.
-   * @param {bigint} value - 데이터 값.
-   * @returns {DataPt} 생성된 데이터 포인트.
-   */
-  private createNewDataPoint(params: {
-    sourceId: string | number
-    sourceIndex: number
-    value: bigint
-    sourceSize: number
-  }): DataPt {
-    SynthesizerValidator.validateValue(params.value)
-    /**
-     * 생성된 데이터 포인트를 나타내는 변수입니다.
-     *
-     * @property {string | number} source - 데이터 소스의 식별자.
-     * @property {number} sourceOffset - 데이터 소스 내에서의 위치를 나타내는 오프셋.
-     * @property {number} sourceSize - 데이터의 실제 크기.
-     * @property {bigint} value - 데이터 값.
-     * @property {string} valuestr - 데이터 값을 16진수 문자열로 표현한 값.
-     */
-    return {
-      source: params.sourceId,
-      sourceIndex: params.sourceIndex,
-      sourceSize: params.sourceSize,
-      value: params.value,
-      valueHex: params.value.toString(16),
-    }
-  }
-
-  /**
    * PUSH 명령어에 의한 새로운 LOAD 배치의 입출력 쌍을 추가합니다.
    *
    * @param {string} codeAddress - PUSH가 실행 된 코드의 address.
@@ -93,7 +61,7 @@ export class Synthesizer {
     value: bigint,
     size: number,
   ): DataPt {
-    const pointerIn: DataPt = this.createNewDataPoint({
+    const pointerIn: DataPt = DataPointFactory.create({
       sourceId: `code: ${codeAddress}`,
       sourceIndex: programCounter + 1,
       value,
@@ -102,7 +70,7 @@ export class Synthesizer {
 
     // 기존 output list에 이어서 추가
     const outOffset = this.placements.get(0)!.outPts.length
-    const pointerOut: DataPt = this.createNewDataPoint({
+    const pointerOut: DataPt = DataPointFactory.create({
       sourceId: 0,
       sourceIndex: outOffset,
       value,
@@ -118,7 +86,7 @@ export class Synthesizer {
     this.auxin.push(value)
     const auxinIndex = this.auxin.length - 1
     const auxValue = this.auxin[auxinIndex]
-    const pointerIn = this.createNewDataPoint({
+    const pointerIn = DataPointFactory.create({
       sourceId: 'auxin',
       sourceIndex: auxinIndex,
       value: auxValue,
@@ -127,7 +95,7 @@ export class Synthesizer {
 
     // 기존 output list에 이어서 추가
     const outOffset = this.placements.get(0)!.outPts.length
-    const pointerOut: DataPt = this.createNewDataPoint({
+    const pointerOut: DataPt = DataPointFactory.create({
       sourceId: 0,
       sourceIndex: outOffset,
       value: auxValue,
@@ -143,7 +111,7 @@ export class Synthesizer {
     this.envInf.set(source, value)
     const index = offset ?? 0
     const sourceSize = size ?? DEFAULT_SOURCE_SIZE
-    const pointerIn = this.createNewDataPoint({
+    const pointerIn = DataPointFactory.create({
       sourceId: source,
       sourceIndex: index,
       value,
@@ -152,7 +120,7 @@ export class Synthesizer {
 
     // 기존 output list에 이어서 추가
     const outIndex = this.placements.get(0)!.outPts.length
-    const pointerOut: DataPt = this.createNewDataPoint({
+    const pointerOut: DataPt = DataPointFactory.create({
       sourceId: 0,
       sourceIndex: outIndex,
       value,
@@ -190,7 +158,7 @@ export class Synthesizer {
         const subcircuitName = 'AND'
         const inPts: DataPt[] = [this.loadAuxin(BigInt(maskerString)), dataPt]
         const outPts: DataPt[] = [
-          this.createNewDataPoint({
+          DataPointFactory.create({
             sourceId: this.placementIndex,
             sourceIndex: 0,
             value: outValue,
@@ -273,7 +241,7 @@ export class Synthesizer {
   //       const inPt = aliasResolvedDataPt
   //       const outPts: DataPt[] = outValues
   //         .slice(0, 32)
-  //         .map((value, index) => this.createNewDataPoint('auxin', sourceOffset + index, value, 32))
+  //         .map((value, index) => DataPointFactory.create('auxin', sourceOffset + index, value, 32))
   //       this._place('RETURN', [inPt], outPts)
   //       break
   //     }
@@ -300,7 +268,7 @@ export class Synthesizer {
    *
    */
   public newPlacementCALLDATALOAD(runState: RunState, offset: bigint) {
-    const inPt = this.createNewDataPoint({
+    const inPt = DataPointFactory.create({
       sourceId: 'CALLDATALOAD',
       sourceIndex: 0,
       value: offset,
@@ -317,7 +285,7 @@ export class Synthesizer {
       .join('')
     const value = BigInt('0x' + hexString)
 
-    const outPt = this.createNewDataPoint({
+    const outPt = DataPointFactory.create({
       sourceId: this.placementIndex,
       sourceIndex: Number(offset),
       value,
@@ -351,7 +319,7 @@ export class Synthesizer {
   }
 
   private createOutputPoint(value: bigint): DataPt {
-    return this.createNewDataPoint({
+    return DataPointFactory.create({
       sourceId: this.placementIndex,
       sourceIndex: 0,
       value,

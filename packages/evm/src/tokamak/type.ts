@@ -56,3 +56,17 @@ export type PlacementEntry = {
 }
 
 export type Placements = Map<number, PlacementEntry>
+
+/**
+ * 데이터 포인트 생성에 필요한 파라미터 인터페이스
+ * @property sourceId - 데이터 소스의 식별자 (예: 코드 주소, 'auxin', 'CALLDATALOAD' 등)
+ * @property sourceIndex - 데이터 소스 내에서의 위치를 나타내는 인덱스
+ * @property value - 실제 데이터 값
+ * @property sourceSize - 데이터의 크기 (바이트 단위)
+ */
+export interface CreateDataPointParams {
+  sourceId: string | number
+  sourceIndex: number
+  value: bigint
+  sourceSize: number
+}
