@@ -1,10 +1,11 @@
-import { ArithmeticOperations } from './arithmetic.js'
+import { ArithmeticOperations, OPERATION_MAPPING } from './arithmetic.js'
 import { InvalidInputCountError, SynthesizerError, UndefinedSubcircuitError } from './errors.js'
 import { subcircuits } from './subcircuit_info.js'
 import { addPlacement, convertToSigned, powMod } from './utils.js'
 import { SynthesizerValidator } from './validator.js'
 
 import type { RunState } from '../interpreter.js'
+import type { ArithmeticOperator } from './arithmetic.js'
 import type { DataAliasInfoEntry, DataAliasInfos } from './memoryPt.js'
 import type { DataPt, Placements } from './type.js'
 
@@ -195,13 +196,6 @@ export class Synthesizer {
       // MSTORE8의 데이터 변형은 AND 연산으로 표현 가능 (= AND(data, 0xff))
       const maskerString = '0x' + 'FF'.repeat(truncSize)
 
-      /**
-       * @author Ale
-       *
-       */
-      // const mask = (1n << BigInt(truncSize * 8)) - 1n
-      // const maskerString = '0x' + mask.toString(16).toUpperCase()
-
       const outValue = dataPt.value & BigInt(maskerString)
       if (dataPt.value !== outValue) {
         const subcircuitName = 'AND'
@@ -350,21 +344,15 @@ export class Synthesizer {
     NOT: 1,
   } as const
 
-  private handleBinaryOp(
-    name: string,
-    inPts: DataPt[],
-    operation: (...args: bigint[]) => bigint,
-  ): DataPt[] {
+  private handleBinaryOp(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     try {
       // 기본값은 2, 예외적인 경우만 REQUIRED_INPUTS에서 확인
       const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2
       SynthesizerValidator.validateInputCount(name, inPts.length, requiredInputs)
       SynthesizerValidator.validateInputs(inPts)
 
-      // 입력값들을 배열로 변환
+      const operation = OPERATION_MAPPING[name]
       const values = inPts.map((pt) => pt.value)
-
-      // operation 함수에 spread operator로 전달
       const outValue = operation(...values)
 
       const outPts = [
@@ -398,54 +386,9 @@ export class Synthesizer {
    * @returns {DataPt[]} 생성된 출력 데이터 포인트 배열.
    * @throws {Error} 정의되지 않은 서브서킷 이름이 주어진 경우.
    */
-  public placeArith(name: string, inPts: DataPt[]): DataPt[] {
+  public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     SynthesizerValidator.validateSubcircuitName(name, this.subcircuitNames)
-
-    const operations: Record<string, () => DataPt[]> = {
-      // 기본 산술 연산
-      ADD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.add),
-      MUL: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.mul),
-      SUB: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sub),
-      DIV: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.div),
-      SDIV: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sdiv),
-
-      // 모듈로 연산
-      MOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.mod),
-      SMOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.smod),
-      ADDMOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.addmod),
-      MULMOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.mulmod),
-
-      // 지수 연산
-      EXP: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.exp),
-
-      // 비교 연산
-      LT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.lt),
-      GT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.gt),
-      SLT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.slt),
-      SGT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sgt),
-      EQ: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.eq),
-      ISZERO: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.iszero),
-
-      // 비트 연산
-      AND: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.and),
-      OR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.or),
-      XOR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.xor),
-      NOT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.not),
-
-      // 시프트 연산
-      SHL: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.shl),
-      SHR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.shr),
-      SAR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sar),
-
-      // 바이트 연산
-      BYTE: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.byte),
-
-      // 부호 확장
-      SIGNEXTEND: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.signextend),
-    }
-
-    const operation = operations[name]
-    return operation()
+    return this.handleBinaryOp(name, inPts)
   }
 
   /**

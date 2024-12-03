@@ -1,10 +1,41 @@
 import { convertToSigned } from './utils.js'
 
+// 연산자 타입 정의
+export type ArithmeticOperator =
+  | 'ADD'
+  | 'MUL'
+  | 'SUB'
+  | 'DIV'
+  | 'SDIV'
+  | 'MOD'
+  | 'SMOD'
+  | 'ADDMOD'
+  | 'MULMOD'
+  | 'EXP'
+  | 'LT'
+  | 'GT'
+  | 'SLT'
+  | 'SGT'
+  | 'EQ'
+  | 'ISZERO'
+  | 'AND'
+  | 'OR'
+  | 'XOR'
+  | 'NOT'
+  | 'SHL'
+  | 'SHR'
+  | 'SAR'
+  | 'BYTE'
+  | 'SIGNEXTEND'
+
+export type ArithmeticFunction = (...args: bigint[]) => bigint
+
 /**
  * Synthesizer 산술 연산을 처리하는 유틸리티 클래스
  */
 export class ArithmeticOperations {
   private static readonly MAX_UINT256 = (1n << 256n) - 1n
+  private static readonly SIGN_BIT = 1n << 255n
 
   /**
    * 기본 산술 연산
@@ -176,3 +207,32 @@ export class ArithmeticOperations {
     }
   }
 }
+
+// 연산자와 함수 매핑
+export const OPERATION_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> = {
+  ADD: ArithmeticOperations.add,
+  MUL: ArithmeticOperations.mul,
+  SUB: ArithmeticOperations.sub,
+  DIV: ArithmeticOperations.div,
+  SDIV: ArithmeticOperations.sdiv,
+  MOD: ArithmeticOperations.mod,
+  SMOD: ArithmeticOperations.smod,
+  ADDMOD: ArithmeticOperations.addmod,
+  MULMOD: ArithmeticOperations.mulmod,
+  EXP: ArithmeticOperations.exp,
+  LT: ArithmeticOperations.lt,
+  GT: ArithmeticOperations.gt,
+  SLT: ArithmeticOperations.slt,
+  SGT: ArithmeticOperations.sgt,
+  EQ: ArithmeticOperations.eq,
+  ISZERO: ArithmeticOperations.iszero,
+  AND: ArithmeticOperations.and,
+  OR: ArithmeticOperations.or,
+  XOR: ArithmeticOperations.xor,
+  NOT: ArithmeticOperations.not,
+  SHL: ArithmeticOperations.shl,
+  SHR: ArithmeticOperations.shr,
+  SAR: ArithmeticOperations.sar,
+  BYTE: ArithmeticOperations.byte,
+  SIGNEXTEND: ArithmeticOperations.signextend,
+} as const

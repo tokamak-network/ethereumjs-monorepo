@@ -13,7 +13,7 @@ const mapToStr = (map: Map<any, any>) => {
 }
 
 const logStackAndPlacement = (res: any) => {
-  console.log('\nStack-Placement Value Comparison Test')
+  // console.log('\nStack-Placement Value Comparison Test')
 
   // 마지막 stackPt 값 가져오기
   const stackPt = res.runState!.stackPt.getStack()
@@ -21,21 +21,21 @@ const logStackAndPlacement = (res: any) => {
   // RETURN 연산 사용 여부 확인
   const isReturnOp = res.runState?.lastOp === 0xf3
 
-  console.log('stack', res.runState.stack)
-  console.log('stackPt : ', stackPt)
+  // console.log('stack', res.runState.stack)
+  // console.log('stackPt : ', stackPt)
 
   const placementsArray = Array.from(res.runState!.synthesizer.placements.values())
   const lastPlacement = placementsArray[placementsArray.length - 1]
 
-  console.log('circuit', placementsArray)
-  console.log('lastPlacement', lastPlacement)
+  // console.log('circuit', placementsArray)
+  // console.log('lastPlacement', lastPlacement)
 
   const lastStackValue = stackPt[stackPt.length - 1].valuestr
 
   const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].valuestr
 
-  console.log('lastStackValue : ', lastStackValue)
-  console.log('lastOutPtValue : ', lastOutPtValue)
+  // console.log('lastStackValue : ', lastStackValue)
+  // console.log('lastOutPtValue : ', lastOutPtValue)
 
   const stringPlacements = mapToStr(res.runState!.synthesizer.placements)
   // console.log('******RESULT******')

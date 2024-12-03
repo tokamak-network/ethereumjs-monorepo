@@ -28,6 +28,6 @@ export const addPlacement = (map: Placements, value: PlacementEntry) => {
 
 // 부호 있는 정수로 변환 (256비트)
 export const convertToSigned = (value: bigint): bigint => {
-  const mask = 1n << 255n
-  return value & mask ? value - (1n << 256n) : value
+  const SIGN_BIT = 1n << 255n
+  return (value & SIGN_BIT) !== 0n ? value - (1n << 256n) : value
 }
