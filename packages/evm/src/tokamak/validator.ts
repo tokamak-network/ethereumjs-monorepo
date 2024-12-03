@@ -69,4 +69,10 @@ export class SynthesizerValidator {
       throw new Error(`${paramName} must be between ${min} and ${max}, got ${value}`)
     }
   }
+
+  static validateValue(value: bigint): void {
+    if (value < 0n) {
+      throw new Error('Negative values are not allowed')
+    }
+  }
 }
