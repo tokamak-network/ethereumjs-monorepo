@@ -1,7 +1,8 @@
-import { ArithmeticOperations, OPERATION_MAPPING } from './arithmetic.js'
-import { InvalidInputCountError, SynthesizerError, UndefinedSubcircuitError } from './errors.js'
+import { OPERATION_MAPPING } from './arithmetic.js'
+import { DEFAULT_SOURCE_SIZE, INITIAL_PLACEMENT, INITIAL_PLACEMENT_INDEX } from './constants.js'
+import { InvalidInputCountError, SynthesizerError } from './errors.js'
 import { subcircuits } from './subcircuit_info.js'
-import { addPlacement, convertToSigned, powMod } from './utils.js'
+import { addPlacement } from './utils.js'
 import { SynthesizerValidator } from './validator.js'
 
 import type { RunState } from '../interpreter.js'
@@ -37,14 +38,11 @@ export class Synthesizer {
 
   constructor() {
     this.placements = new Map()
-    this.placements.set(0, {
-      name: 'LOAD',
-      inPts: [],
-      outPts: [],
-    })
+    this.placements.set(0, INITIAL_PLACEMENT)
+
     this.auxin = []
     this.envInf = new Map()
-    this.placementIndex = 1
+    this.placementIndex = INITIAL_PLACEMENT_INDEX
     this.subcircuitNames = subcircuits.map((circuit) => circuit.name)
   }
 
@@ -72,15 +70,6 @@ export class Synthesizer {
      * @property {bigint} value - 데이터 값.
      * @property {string} valuestr - 데이터 값을 16진수 문자열로 표현한 값.
      */
-    // const outDataPt: DataPt = {
-    //   source: sourceId,
-    //   sourceIndex,
-    //   sourceSize,
-    //   value,
-    //   valueHex: value.toString(16),
-    // }
-    // return outDataPt
-
     return {
       source: params.sourceId,
       sourceIndex: params.sourceIndex,
@@ -117,7 +106,7 @@ export class Synthesizer {
       sourceId: 0,
       sourceIndex: outOffset,
       value,
-      sourceSize: 32,
+      sourceSize: DEFAULT_SOURCE_SIZE,
     })
     this.placements.get(0)!.inPts.push(pointerIn)
     this.placements.get(0)!.outPts.push(pointerOut)
@@ -133,7 +122,7 @@ export class Synthesizer {
       sourceId: 'auxin',
       sourceIndex: auxinIndex,
       value: auxValue,
-      sourceSize: 32,
+      sourceSize: DEFAULT_SOURCE_SIZE,
     })
 
     // 기존 output list에 이어서 추가
@@ -142,7 +131,7 @@ export class Synthesizer {
       sourceId: 0,
       sourceIndex: outOffset,
       value: auxValue,
-      sourceSize: 32,
+      sourceSize: DEFAULT_SOURCE_SIZE,
     })
     this.placements.get(0)!.inPts.push(pointerIn)
     this.placements.get(0)!.outPts.push(pointerOut)
@@ -153,7 +142,7 @@ export class Synthesizer {
   public loadEnvInf(source: string, value: bigint, offset?: number, size?: number): DataPt {
     this.envInf.set(source, value)
     const index = offset ?? 0
-    const sourceSize = size ?? 32
+    const sourceSize = size ?? DEFAULT_SOURCE_SIZE
     const pointerIn = this.createNewDataPoint({
       sourceId: source,
       sourceIndex: index,
@@ -311,7 +300,12 @@ export class Synthesizer {
    *
    */
   public newPlacementCALLDATALOAD(runState: RunState, offset: bigint) {
-    const inPt = this.createNewDataPoint('offset', 0, offset, 32)
+    const inPt = this.createNewDataPoint({
+      sourceId: 'CALLDATALOAD',
+      sourceIndex: 0,
+      value: offset,
+      sourceSize: DEFAULT_SOURCE_SIZE,
+    })
 
     // Get calldata slice and convert to bigint
     const calldata = runState.interpreter.getCallData()
@@ -327,7 +321,7 @@ export class Synthesizer {
       sourceId: this.placementIndex,
       sourceIndex: Number(offset),
       value,
-      sourceSize: 32,
+      sourceSize: DEFAULT_SOURCE_SIZE,
     })
 
     // Place the subcircuit
@@ -344,36 +338,52 @@ export class Synthesizer {
     NOT: 1,
   } as const
 
+  private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
+    // 기본값은 2, 예외적인 경우만 REQUIRED_INPUTS에서 확인
+    const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2
+    SynthesizerValidator.validateInputCount(name, inPts.length, requiredInputs)
+    SynthesizerValidator.validateInputs(inPts)
+  }
+
+  private executeOperation(name: ArithmeticOperator, values: bigint[]): bigint {
+    const operation = OPERATION_MAPPING[name]
+    return operation(...values)
+  }
+
+  private createOutputPoint(value: bigint): DataPt {
+    return this.createNewDataPoint({
+      sourceId: this.placementIndex,
+      sourceIndex: 0,
+      value,
+      sourceSize: 32,
+    })
+  }
+
   private handleBinaryOp(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     try {
-      // 기본값은 2, 예외적인 경우만 REQUIRED_INPUTS에서 확인
-      const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2
-      SynthesizerValidator.validateInputCount(name, inPts.length, requiredInputs)
-      SynthesizerValidator.validateInputs(inPts)
+      // 1. 입력값 검증
+      this.validateOperation(name, inPts)
 
-      const operation = OPERATION_MAPPING[name]
+      // 2. 연산 실행
       const values = inPts.map((pt) => pt.value)
-      const outValue = operation(...values)
+      const outValue = this.executeOperation(name, values)
 
-      const outPts = [
-        this.createNewDataPoint({
-          sourceId: this.placementIndex,
-          sourceIndex: 0,
-          value: outValue,
-          sourceSize: 32,
-        }),
-      ]
+      // 3. 출력값 생성
+      const outPts = [this.createOutputPoint(outValue)]
+
+      // 4. 배치 추가
       this._place(name, inPts, outPts)
+
       return outPts
     } catch (error) {
       if (error instanceof InvalidInputCountError) {
+        /*eslint-disable*/
         console.error(`Invalid input count for ${name}: ${error.message}`)
       }
       if (error instanceof SynthesizerError) {
-        // 다른 Synthesizer 관련 에러 처리
+        /*eslint-disable*/
         console.error(`Synthesizer error in ${name}: ${error.message}`)
       }
-      // 에러를 다시 throw하거나 기본값 반환
       throw error
     }
   }
@@ -443,13 +453,13 @@ export class Synthesizer {
    *
    * @param {bigint} value - 추가할 값.
    */
-  private _addAuxin(value: bigint | bigint[]): void {
-    if (Array.isArray(value)) {
-      this.auxin.push(...value)
-    } else {
-      this.auxin.push(value)
-    }
-  }
+  // private _addAuxin(value: bigint | bigint[]): void {
+  //   if (Array.isArray(value)) {
+  //     this.auxin.push(...value)
+  //   } else {
+  //     this.auxin.push(value)
+  //   }
+  // }
 
   private _applyShiftAndMask(info: DataAliasInfoEntry): DataPt {
     let shiftOutPt = info.dataPt
@@ -476,7 +486,7 @@ export class Synthesizer {
     let outPts = [dataPt]
     if (Math.abs(shift) > 0) {
       // shift 값과 shift 방향과의 관계는 MemoryPt에서 정의하였음
-      const subcircuitName: string = shift > 0 ? 'SHL' : 'SHR'
+      const subcircuitName: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR'
       const absShift = Math.abs(shift)
       const inPts: DataPt[] = [this.loadAuxin(BigInt(absShift)), dataPt]
       outPts = this.placeArith(subcircuitName, inPts)

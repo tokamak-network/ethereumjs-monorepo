@@ -33,3 +33,15 @@ export class EmptyDataError extends SynthesizerError {
     this.name = 'EmptyDataError'
   }
 }
+
+export class LoadPlacementError extends SynthesizerError {
+  constructor(message: string) {
+    super(`Load Placement Error: ${message}`)
+  }
+}
+
+export class OperationError extends SynthesizerError {
+  constructor(operation: string, message: string) {
+    super(`Operation ${operation} failed: ${message}`)
+  }
+}
