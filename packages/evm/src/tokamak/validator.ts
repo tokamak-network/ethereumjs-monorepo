@@ -1,6 +1,6 @@
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
-import type { DataPt } from './synthesizer.js'
+import type { DataPt } from './type.js'
 
 /**
  * Synthesizer 관련 유효성 검사를 담당하는 클래스

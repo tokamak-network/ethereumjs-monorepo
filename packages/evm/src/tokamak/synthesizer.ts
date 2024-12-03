@@ -1,3 +1,5 @@
+import { ArithmeticOperations } from './arithmetic.js'
+import { InvalidInputCountError, SynthesizerError, UndefinedSubcircuitError } from './errors.js'
 import { subcircuits } from './subcircuit_info.js'
 import { addPlacement, convertToSigned, powMod } from './utils.js'
 import { SynthesizerValidator } from './validator.js'
@@ -294,18 +296,45 @@ export class Synthesizer {
     return outPt
   }
 
+  // 기본값(2)과 다른 입력 개수를 가진 연산들만 정의
+  private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
+    ADDMOD: 3,
+    MULMOD: 3,
+    ISZERO: 1,
+    NOT: 1,
+  } as const
+
   private handleBinaryOp(
     name: string,
     inPts: DataPt[],
-    operation: (a: bigint, b: bigint) => bigint,
+    operation: (...args: bigint[]) => bigint,
   ): DataPt[] {
-    SynthesizerValidator.validateInputCount(name, inPts.length, 2)
-    SynthesizerValidator.validateInputs(inPts)
+    try {
+      // 기본값은 2, 예외적인 경우만 REQUIRED_INPUTS에서 확인
+      const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2
+      SynthesizerValidator.validateInputCount(name, inPts.length, requiredInputs)
+      SynthesizerValidator.validateInputs(inPts)
 
-    const outValue = operation(inPts[0].value, inPts[1].value)
-    const outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-    this._place(name, inPts, outPts)
-    return outPts
+      // 입력값들을 배열로 변환
+      const values = inPts.map((pt) => pt.value)
+
+      // operation 함수에 spread operator로 전달
+      const outValue = operation(...values)
+
+      const outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+      this._place(name, inPts, outPts)
+      return outPts
+    } catch (error) {
+      if (error instanceof InvalidInputCountError) {
+        console.error(`Invalid input count for ${name}: ${error.message}`)
+      }
+      if (error instanceof SynthesizerError) {
+        // 다른 Synthesizer 관련 에러 처리
+        console.error(`Synthesizer error in ${name}: ${error.message}`)
+      }
+      // 에러를 다시 throw하거나 기본값 반환
+      throw error
+    }
   }
 
   /**
@@ -317,470 +346,517 @@ export class Synthesizer {
    * @throws {Error} 정의되지 않은 서브서킷 이름이 주어진 경우.
    */
   public placeArith(name: string, inPts: DataPt[]): DataPt[] {
-    if (!this.subcircuitNames.includes(name)) {
-      throw new Error(`Subcircuit name ${name} is not defined.`)
-    }
-    let outPts: DataPt[] = []
-    switch (name) {
-      case 'ADD': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`ADD takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-        const outValue = inPts[0].value + inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'MUL': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`MUL takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-        const outValue = inPts[0].value * inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SUB': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SUB takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-        const outValue = inPts[0].value - inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'DIV': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`DIV takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-        // 0으로 나누기 처리
-        const outValue = inPts[1].value === 0n ? 0n : inPts[0].value / inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SDIV': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SDIV takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        const a = convertToSigned(inPts[0].value)
-        const b = convertToSigned(inPts[1].value)
-
-        // 0으로 나누기 처리
-        let outValue = 0n
-        if (b !== 0n) {
-          // 부호 있는 나눗셈 수행
-          outValue = a / b
-          // 결과를 다시 unsigned로 변환
-          if (outValue < 0n) {
-            outValue = (1n << 256n) + outValue
-          }
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'MOD': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`MOD takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-        // 0으로 나누기 처리
-        const outValue = inPts[1].value === 0n ? 0n : inPts[0].value % inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SMOD': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SMOD takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 부호 있는 정수로 변환 (256비트)
-        const convertToSigned = (value: bigint): bigint => {
-          const mask = 1n << 255n
-          return value & mask ? value - (1n << 256n) : value
-        }
-
-        const a = convertToSigned(inPts[0].value)
-        const b = convertToSigned(inPts[1].value)
-
-        // 0으로 나누기 처리
-        let outValue = 0n
-        if (b !== 0n) {
-          // 부호 있는 모듈로 연산 수행
-          outValue = a % b
-          // 결과의 부호는 피제수(a)의 부호를 따름
-          if (outValue < 0n) {
-            outValue = (1n << 256n) + outValue
-          }
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'ADDMOD': {
-        const nInputs = 3
-        if (inPts.length !== nInputs) {
-          throw new Error(`ADDMOD takes 3 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        let outValue = 0n
-        // N이 0이 아닌 경우에만 연산 수행
-        if (inPts[2].value !== 0n) {
-          // 먼저 덧셈을 수행한 후 모듈러 연산
-          outValue = (inPts[0].value + inPts[1].value) % inPts[2].value
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'MULMOD': {
-        const nInputs = 3
-        if (inPts.length !== nInputs) {
-          throw new Error(`MULMOD takes 3 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        let outValue = 0n
-        // N이 0이 아닌 경우에만 연산 수행
-        if (inPts[2].value !== 0n) {
-          // 먼저 곱셈을 수행한 후 모듈러 연산
-          outValue = (inPts[0].value * inPts[1].value) % inPts[2].value
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'EXP': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`EXP takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        const base = inPts[0].value
-        const exponent = inPts[1].value
-
-        // 특수 케이스 처리
-        let outValue: bigint
-        if (exponent === 0n) {
-          outValue = 1n
-        } else if (base === 0n) {
-          outValue = 0n
-        } else {
-          // 모든 연산은 2^256 모듈러 내에서 수행됨
-          // EVM의 256비트 연산 범위를 벗어나지 않도록 함
-          const modulus = 1n << 256n
-          outValue = powMod(base, exponent, modulus)
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'EQ': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`EQ takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        const outValue = inPts[0].value === inPts[1].value ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'ISZERO': {
-        const nInputs = 1 // ISZERO는 하나의 입력만 받음, In_idx : [2, 1]
-        if (inPts.length !== nInputs) {
-          throw new Error(`ISZERO takes 1 input, while this placement takes ${inPts.length}.`)
-        }
-
-        const outValue = inPts[0].value === 0n ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SHL': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SHL takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        const shift = inPts[0].value // 시프트할 비트 수
-        const value = inPts[1].value // 시프트될 값
-
-        let outValue: bigint
-        /**
-         * @question (Ale)
-         *
-         * shift 수가 256비트를 초과하면 에러 처리를 해야되는지 비트 사이즈에 맞게 밸류 조정을 해야 하는지?
-         * @answer EVM와 같은 방식으로 처리하면 됨
-         */
-        if (shift >= 256n) {
-          // 256비트 이상 시프트하면 0이 됨
-          outValue = 0n
-        } else {
-          // 왼쪽 시프트 수행 후 256비트로 자름
-          outValue = (value << shift) & ((1n << 256n) - 1n)
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SHR': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SHR takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        const shift = inPts[0].value // 시프트할 비트 수
-        const value = inPts[1].value // 시프트될 값
-
-        let outValue: bigint
-        if (shift >= 256n) {
-          // 256비트 이상 시프트하면 0이 됨
-          outValue = 0n
-        } else {
-          // 오른쪽 시프트 수행
-          outValue = value >> shift
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'LT': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`LT takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 부호 없는(unsigned) 비교 수행
-        const outValue = inPts[0].value < inPts[1].value ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'GT': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`GT takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 부호 없는(unsigned) 비교 수행
-        const outValue = inPts[0].value > inPts[1].value ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'NOT': {
-        const nInputs = 1
-        if (inPts.length !== nInputs) {
-          throw new Error(`NOT takes 1 input, while this placement takes ${inPts.length}.`)
-        }
-
-        // 256비트 NOT 연산 수행
-        const outValue = ~inPts[0].value & ((1n << 256n) - 1n)
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'BYTE': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`BYTE takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        const index = inPts[0].value
-        const word = inPts[1].value
-
-        let outValue: bigint
-        if (index >= 32n) {
-          // 인덱스가 31보다 크면 0 반환
-          outValue = 0n
-        } else {
-          // 1. 원하는 바이트를 오른쪽으로 시프트
-          // 2. 최하위 바이트만 남기기 위해 0xFF와 AND 연산
-          const shiftBits = (31n - index) * 8n
-          outValue = (word >> shiftBits) & 0xffn
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SAR': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SAR takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        const shift = inPts[0].value // 시프트할 비트 수
-        const value = inPts[1].value // 시프트될 값
-
-        let outValue: bigint
-        if (shift >= 256n) {
-          // 256비트 이상 시프트할 경우
-          // 최상위 비트(부호 비트)가 1이면 모든 비트가 1, 0이면 모든 비트가 0
-          outValue = (value & (1n << 255n)) === 0n ? 0n : (1n << 256n) - 1n
-        } else {
-          // 부호 비트 확인 (최상위 비트)
-          const isNegative = (value & (1n << 255n)) !== 0n
-
-          if (isNegative) {
-            // 음수인 경우: 오른쪽 시프트 후 왼쪽에 1을 채움
-            const mask = ((1n << 256n) - 1n) << (256n - shift)
-            outValue = (value >> shift) | mask
-          } else {
-            // 양수인 경우: 일반 오른쪽 시프트
-            outValue = value >> shift
-          }
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SIGNEXTEND': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SIGNEXTEND takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-        const k = inPts[0].value // 확장할 바이트 위치 (0부터 시작)
-        const x = inPts[1].value // 확장할 숫자
-
-        let outValue: bigint
-        if (k > 30n) {
-          // k가 30보다 크면 (31바이트 이상을 가리키면) 입력값을 그대로 반환
-          outValue = x
-        } else {
-          // k번째 바이트의 최상위 비트 위치 계산
-          const bitPosition = (k + 1n) * 8n - 1n
-          // k번째 바이트의 최상위 비트(부호 비트) 확인
-          const signBit = (x >> bitPosition) & 1n
-
-          if (signBit === 1n) {
-            // 부호 비트가 1이면 (음수), 상위 비트들을 1로 채움
-            const mask = ((1n << (256n - bitPosition)) - 1n) << bitPosition
-            outValue = x | mask
-          } else {
-            // 부호 비트가 0이면 (양수), 상위 비트들을 0으로 채움
-            const mask = (1n << (bitPosition + 1n)) - 1n
-            outValue = x & mask
-          }
-        }
-
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SLT': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SLT takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 두 입력값을 부호 있는 정수로 변환하여 비교
-        const a = convertToSigned(inPts[0].value)
-        const b = convertToSigned(inPts[1].value)
-
-        const outValue = a < b ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'SGT': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`SGT takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 두 입력값을 부호 있는 정수로 변환하여 비교
-        const a = convertToSigned(inPts[0].value)
-        const b = convertToSigned(inPts[1].value)
-
-        const outValue = a > b ? 1n : 0n
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'AND': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`AND takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 두 입력값에 대해 비트 AND 연산 수행
-        const outValue = inPts[0].value & inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'OR': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`OR takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 두 입력값에 대해 비트 OR 연산 수행
-        const outValue = inPts[0].value | inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      case 'XOR': {
-        const nInputs = 2
-        if (inPts.length !== nInputs) {
-          throw new Error(`XOR takes 2 inputs, while this placement takes ${inPts.length}.`)
-        }
-
-        // 두 입력값에 대해 비트 XOR 연산 수행
-        const outValue = inPts[0].value ^ inPts[1].value
-        outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
-        this._place(name, inPts, outPts)
-        break
-      }
-
-      default:
-        throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
+    SynthesizerValidator.validateSubcircuitName(name, this.subcircuitNames)
+
+    const operations: Record<string, () => DataPt[]> = {
+      // 기본 산술 연산
+      ADD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.add),
+      MUL: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.mul),
+      SUB: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sub),
+      DIV: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.div),
+      SDIV: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sdiv),
+
+      // 모듈로 연산
+      MOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.mod),
+      SMOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.smod),
+      ADDMOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.addmod),
+      MULMOD: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.mulmod),
+
+      // 지수 연산
+      EXP: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.exp),
+
+      // 비교 연산
+      LT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.lt),
+      GT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.gt),
+      SLT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.slt),
+      SGT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sgt),
+      EQ: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.eq),
+      ISZERO: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.iszero),
+
+      // 비트 연산
+      AND: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.and),
+      OR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.or),
+      XOR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.xor),
+      NOT: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.not),
+
+      // 시프트 연산
+      SHL: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.shl),
+      SHR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.shr),
+      SAR: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.sar),
+
+      // 바이트 연산
+      BYTE: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.byte),
+
+      // 부호 확장
+      SIGNEXTEND: () => this.handleBinaryOp(name, inPts, ArithmeticOperations.signextend),
     }
 
-    return outPts
+    const operation = operations[name]
+    return operation()
+    // if (!this.subcircuitNames.includes(name)) {
+    //   throw new Error(`Subcircuit name ${name} is not defined.`)
+    // }
+    // let outPts: DataPt[] = []
+    // switch (name) {
+    // case 'ADD': {
+    //   const nInputs = 2
+    //   if (inPts.length !== nInputs) {
+    //     throw new Error(`ADD takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //   }
+    //   const outValue = inPts[0].value + inPts[1].value
+    //   outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //   this._place(name, inPts, outPts)
+    //   break
+    // }
+
+    //   case 'MUL': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`MUL takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+    //     const outValue = inPts[0].value * inPts[1].value
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SUB': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SUB takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+    //     const outValue = inPts[0].value - inPts[1].value
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'DIV': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`DIV takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+    //     // 0으로 나누기 처리
+    //     const outValue = inPts[1].value === 0n ? 0n : inPts[0].value / inPts[1].value
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SDIV': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SDIV takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const a = convertToSigned(inPts[0].value)
+    //     const b = convertToSigned(inPts[1].value)
+
+    //     // 0으로 나누기 처리
+    //     let outValue = 0n
+    //     if (b !== 0n) {
+    //       // 부호 있는 나눗셈 수행
+    //       outValue = a / b
+    //       // 결과를 다시 unsigned로 변환
+    //       if (outValue < 0n) {
+    //         outValue = (1n << 256n) + outValue
+    //       }
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'MOD': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`MOD takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+    //     // 0으로 나누기 처리
+    //     const outValue = inPts[1].value === 0n ? 0n : inPts[0].value % inPts[1].value
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SMOD': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SMOD takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 부호 있는 정수로 변환 (256비트)
+    //     const convertToSigned = (value: bigint): bigint => {
+    //       const mask = 1n << 255n
+    //       return value & mask ? value - (1n << 256n) : value
+    //     }
+
+    //     const a = convertToSigned(inPts[0].value)
+    //     const b = convertToSigned(inPts[1].value)
+
+    //     // 0으로 나누기 처리
+    //     let outValue = 0n
+    //     if (b !== 0n) {
+    //       // 부호 있는 모듈로 연산 수행
+    //       outValue = a % b
+    //       // 결과의 부호는 피제수(a)의 부호를 따름
+    //       if (outValue < 0n) {
+    //         outValue = (1n << 256n) + outValue
+    //       }
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    // case 'ADDMOD': {
+    //   const nInputs = 3
+    //   if (inPts.length !== nInputs) {
+    //     throw new Error(`ADDMOD takes 3 inputs, while this placement takes ${inPts.length}.`)
+    //   }
+
+    //   let outValue = 0n
+    //   // N이 0이 아닌 경우에만 연산 수행
+    //   if (inPts[2].value !== 0n) {
+    //     // 먼저 덧셈을 수행한 후 모듈러 연산
+    //     outValue = (inPts[0].value + inPts[1].value) % inPts[2].value
+    //   }
+
+    //   outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //   this._place(name, inPts, outPts)
+    //   break
+    // }
+
+    //   case 'MULMOD': {
+    //     const nInputs = 3
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`MULMOD takes 3 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     let outValue = 0n
+    //     // N이 0이 아닌 경우에만 연산 수행
+    //     if (inPts[2].value !== 0n) {
+    //       // 먼저 곱셈을 수행한 후 모듈러 연산
+    //       outValue = (inPts[0].value * inPts[1].value) % inPts[2].value
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'EXP': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`EXP takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const base = inPts[0].value
+    //     const exponent = inPts[1].value
+
+    //     // 특수 케이스 처리
+    //     let outValue: bigint
+    //     if (exponent === 0n) {
+    //       outValue = 1n
+    //     } else if (base === 0n) {
+    //       outValue = 0n
+    //     } else {
+    //       // 모든 연산은 2^256 모듈러 내에서 수행됨
+    //       // EVM의 256비트 연산 범위를 벗어나지 않도록 함
+    //       const modulus = 1n << 256n
+    //       outValue = powMod(base, exponent, modulus)
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'EQ': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`EQ takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const outValue = inPts[0].value === inPts[1].value ? 1n : 0n
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'ISZERO': {
+    //     const nInputs = 1 // ISZERO는 하나의 입력만 받음, In_idx : [2, 1]
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`ISZERO takes 1 input, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const outValue = inPts[0].value === 0n ? 1n : 0n
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SHL': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SHL takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const shift = inPts[0].value // 시프트할 비트 수
+    //     const value = inPts[1].value // 시프트될 값
+
+    //     let outValue: bigint
+    //     /**
+    //      * @question (Ale)
+    //      *
+    //      * shift 수가 256비트를 초과하면 에러 처리를 해야되는지 비트 사이즈에 맞게 밸류 조정을 해야 하는지?
+    //      * @answer EVM와 같은 방식으로 처리하면 됨
+    //      */
+    //     if (shift >= 256n) {
+    //       // 256비트 이상 시프트하면 0이 됨
+    //       outValue = 0n
+    //     } else {
+    //       // 왼쪽 시프트 수행 후 256비트로 자름
+    //       outValue = (value << shift) & ((1n << 256n) - 1n)
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SHR': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SHR takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const shift = inPts[0].value // 시프트할 비트 수
+    //     const value = inPts[1].value // 시프트될 값
+
+    //     let outValue: bigint
+    //     if (shift >= 256n) {
+    //       // 256비트 이상 시프트하면 0이 됨
+    //       outValue = 0n
+    //     } else {
+    //       // 오른쪽 시프트 수행
+    //       outValue = value >> shift
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'LT': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`LT takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 부호 없는(unsigned) 비교 수행
+    //     const outValue = inPts[0].value < inPts[1].value ? 1n : 0n
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'GT': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`GT takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 부호 없는(unsigned) 비교 수행
+    //     const outValue = inPts[0].value > inPts[1].value ? 1n : 0n
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'NOT': {
+    //     const nInputs = 1
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`NOT takes 1 input, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 256비트 NOT 연산 수행
+    //     const outValue = ~inPts[0].value & ((1n << 256n) - 1n)
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'BYTE': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`BYTE takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const index = inPts[0].value
+    //     const word = inPts[1].value
+
+    //     let outValue: bigint
+    //     if (index >= 32n) {
+    //       // 인덱스가 31보다 크면 0 반환
+    //       outValue = 0n
+    //     } else {
+    //       // 1. 원하는 바이트를 오른쪽으로 시프트
+    //       // 2. 최하위 바이트만 남기기 위해 0xFF와 AND 연산
+    //       const shiftBits = (31n - index) * 8n
+    //       outValue = (word >> shiftBits) & 0xffn
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SAR': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SAR takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     const shift = inPts[0].value // 시프트할 비트 수
+    //     const value = inPts[1].value // 시프트될 값
+
+    //     let outValue: bigint
+    //     if (shift >= 256n) {
+    //       // 256비트 이상 시프트할 경우
+    //       // 최상위 비트(부호 비트)가 1이면 모든 비트가 1, 0이면 모든 비트가 0
+    //       outValue = (value & (1n << 255n)) === 0n ? 0n : (1n << 256n) - 1n
+    //     } else {
+    //       // 부호 비트 확인 (최상위 비트)
+    //       const isNegative = (value & (1n << 255n)) !== 0n
+
+    //       if (isNegative) {
+    //         // 음수인 경우: 오른쪽 시프트 후 왼쪽에 1을 채움
+    //         const mask = ((1n << 256n) - 1n) << (256n - shift)
+    //         outValue = (value >> shift) | mask
+    //       } else {
+    //         // 양수인 경우: 일반 오른쪽 시프트
+    //         outValue = value >> shift
+    //       }
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SIGNEXTEND': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SIGNEXTEND takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+    //     const k = inPts[0].value // 확장할 바이트 위치 (0부터 시작)
+    //     const x = inPts[1].value // 확장할 숫자
+
+    //     let outValue: bigint
+    //     if (k > 30n) {
+    //       // k가 30보다 크면 (31바이트 이상을 가리키면) 입력값을 그대로 반환
+    //       outValue = x
+    //     } else {
+    //       // k번째 바이트의 최상위 비트 위치 계산
+    //       const bitPosition = (k + 1n) * 8n - 1n
+    //       // k번째 바이트의 최상위 비트(부호 비트) 확인
+    //       const signBit = (x >> bitPosition) & 1n
+
+    //       if (signBit === 1n) {
+    //         // 부호 비트가 1이면 (음수), 상위 비트들을 1로 채움
+    //         const mask = ((1n << (256n - bitPosition)) - 1n) << bitPosition
+    //         outValue = x | mask
+    //       } else {
+    //         // 부호 비트가 0이면 (양수), 상위 비트들을 0으로 채움
+    //         const mask = (1n << (bitPosition + 1n)) - 1n
+    //         outValue = x & mask
+    //       }
+    //     }
+
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SLT': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SLT takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 두 입력값을 부호 있는 정수로 변환하여 비교
+    //     const a = convertToSigned(inPts[0].value)
+    //     const b = convertToSigned(inPts[1].value)
+
+    //     const outValue = a < b ? 1n : 0n
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'SGT': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`SGT takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 두 입력값을 부호 있는 정수로 변환하여 비교
+    //     const a = convertToSigned(inPts[0].value)
+    //     const b = convertToSigned(inPts[1].value)
+
+    //     const outValue = a > b ? 1n : 0n
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'AND': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`AND takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 두 입력값에 대해 비트 AND 연산 수행
+    //     const outValue = inPts[0].value & inPts[1].value
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'OR': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`OR takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 두 입력값에 대해 비트 OR 연산 수행
+    //     const outValue = inPts[0].value | inPts[1].value
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   case 'XOR': {
+    //     const nInputs = 2
+    //     if (inPts.length !== nInputs) {
+    //       throw new Error(`XOR takes 2 inputs, while this placement takes ${inPts.length}.`)
+    //     }
+
+    //     // 두 입력값에 대해 비트 XOR 연산 수행
+    //     const outValue = inPts[0].value ^ inPts[1].value
+    //     outPts = [this.newDataPt(this.placementIndex, 0, outValue, 32)]
+    //     this._place(name, inPts, outPts)
+    //     break
+    //   }
+
+    //   default:
+    //     throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
+    // }
+
+    // return outPts
   }
 
   /**

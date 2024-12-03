@@ -9,7 +9,7 @@ import {
 import { Memory } from '../memory.js'
 
 import type { RunState } from '../interpreter.js'
-import type { DataPt } from './synthesizer.js'
+import type { DataPt } from './type.js'
 
 /**
  * Memory vs MemoryPt 클래스의 주요 차이점
