@@ -1,6 +1,6 @@
-import { SynthesizerValidator } from './validator.js'
+import { SynthesizerValidator } from '../validation/index.js'
 
-import type { CreateDataPointParams, DataPt } from './type.js'
+import type { CreateDataPointParams, DataPt } from '../types/index.js'
 
 export class DataPointFactory {
   public static create(params: CreateDataPointParams): DataPt {

@@ -1,4 +1,4 @@
-import { convertToSigned } from './utils.js'
+import { convertToSigned } from '../utils/index.js'
 
 // 연산자 타입 정의
 export type ArithmeticOperator =

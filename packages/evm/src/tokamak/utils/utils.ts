@@ -1,4 +1,4 @@
-import type { PlacementEntry, Placements } from './type.js'
+import type { PlacementEntry, Placements } from '../types/index.js'
 
 export const powMod = (base: bigint, exponent: bigint, modulus: bigint): bigint => {
   if (modulus === 1n) return 0n

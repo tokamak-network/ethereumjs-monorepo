@@ -24,7 +24,7 @@ import { Message } from './message.js'
 import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
 import { MemoryPt } from './tokamak/memoryPt.js'
-import { StackPt } from './tokamak/stackPt.js'
+import { StackPt } from './tokamak/pointers/stackPt.js'
 
 import type { EVM } from './evm.js'
 import type { Journal } from './journal.js'
@@ -543,7 +543,6 @@ export class Interpreter {
         this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
       }
       this.opDebuggers[name](JSON.stringify(opTrace))
-      
 
       await waitForCommand('c')
     }
@@ -958,7 +957,13 @@ export class Interpreter {
   /**
    * Sends a message with arbitrary data to a given address path.
    */
-  async call(gasLimit: bigint, address: Address, value: bigint, data: Uint8Array, memoryPts: MemoryPts,): Promise<bigint> {
+  async call(
+    gasLimit: bigint,
+    address: Address,
+    value: bigint,
+    data: Uint8Array,
+    memoryPts: MemoryPts,
+  ): Promise<bigint> {
     const msg = new Message({
       caller: this._env.address,
       gasLimit,

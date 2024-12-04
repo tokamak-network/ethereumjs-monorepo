@@ -1,25 +1,30 @@
-import { DataPointFactory } from './DataPointFactory.js'
-import { OPERATION_MAPPING } from './arithmetic.js'
-import { DEFAULT_SOURCE_SIZE, INITIAL_PLACEMENT, INITIAL_PLACEMENT_INDEX } from './constants.js'
-import { InvalidInputCountError, SynthesizerError } from './errors.js'
-import { subcircuits } from './subcircuit_info.js'
-import { addPlacement } from './utils.js'
-import { SynthesizerValidator } from './validator.js'
+import {
+  DEFAULT_SOURCE_SIZE,
+  INITIAL_PLACEMENT,
+  INITIAL_PLACEMENT_INDEX,
+  subcircuits,
+} from '../constant/index.js'
+import { type ArithmeticOperator, OPERATION_MAPPING } from '../operations/index.js'
+import { DataPointFactory } from '../pointers/index.js'
+import {
+  InvalidInputCountError,
+  SynthesizerError,
+  SynthesizerValidator,
+} from '../validation/index.js'
 
-import type { RunState } from '../interpreter.js'
-import type { ArithmeticOperator } from './arithmetic.js'
-import type { DataAliasInfoEntry, DataAliasInfos } from './memoryPt.js'
-import type { DataPt, Placements } from './type.js'
+import type { RunState } from '../../interpreter.js'
+import type { DataAliasInfoEntry, DataAliasInfos } from '../pointers/index.js'
+import type { DataPt, Placements } from '../types/index.js'
 
 /**
  * @TODO
  *
  * 1. loadSubcircuit을 분할
- *  -> 1-1. public load
- *    -> envirmental information, 최종 출력, auxin 데이터
- *    ->
- *  -> 1-2. private load
- *    -> 바이트 코드 데이터
+ *    -> 1-1. public load
+ *      -> envirmental information, 최종 출력, auxin 데이터
+ *      ->
+ *    -> 1-2. private load
+ *      -> 바이트 코드 데이터
  */
 
 /**
@@ -48,7 +53,7 @@ export class Synthesizer {
   }
 
   /**
-   * LOAD 서브서킷에 새로운 입출력 쌍을 추가합니다.
+   * LOAD 서브서킷에 새���운 입출력 쌍을 추가합니다.
    * @param pointerIn - 입력 데이터 포인트
    * @returns 생성된 출력 데이터 포인트
    * @private
@@ -136,8 +141,8 @@ export class Synthesizer {
   }
 
   /**
-   * 새로운 MSTORE 배치를 추가합니다.
-   * MSTORE는 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 메모리에 데이터를 저장하는 명령어입니다. MSTORE는 지정된 메모리 위치에 32바이트(256비트) 크기의 데이터를 저장합니다.
+   * 새���운 MSTORE 배치를 추가합니다.
+   * MSTORE는 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 메모리에 데이터를 저장하는 명령어입니다. MSTORE 지정된 메모리 위치에 32바이트(256비트) 크기의 데이터를 저장합니다.
    EVM 오퍼코드 설명
    MSTORE:
    기능: 메모리의 특정 위치에 32바이트 크기의 데이터를 저장합니다.
@@ -383,7 +388,7 @@ export class Synthesizer {
    * 3개 원본 데이터의 출처는 각각 dataPt에 저장되어 있으며,
    * 3개의 원본 데이터를 각각 "shift"만큼 bit shift 한 뒤 (음의 값이라면 왼쪽으로, 양의 값이라면 오른쪽으로),
    * 그 결과를 각각 "masker"와 AND 해주고,
-   * ��� 결과를 모두 OR 해주면, 그 결과는 변형 데이터와 같습니다.
+   *  결과를 모두 OR 해주면, 그 결과는 변형 데이터와 같습니다.
    **/
 
   /**

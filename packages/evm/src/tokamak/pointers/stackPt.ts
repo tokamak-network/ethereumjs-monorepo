@@ -1,6 +1,6 @@
-import { ERROR, EvmError } from '../exceptions.js'
+import { ERROR, EvmError } from '../../exceptions.js'
 
-import type { DataPt } from './synthesizer.js'
+import type { DataPt } from '../types/index.js'
 
 /**
  * Stack vs StackPt 클래스의 주요 차이점
