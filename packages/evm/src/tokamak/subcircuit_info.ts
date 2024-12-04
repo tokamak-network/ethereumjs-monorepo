@@ -246,4 +246,20 @@ export const subcircuits = [
     Out_idx: [1, 32],
     In_idx: [33, 1],
   },
+  {
+    id: 30,
+    opcode: '',
+    name: 'DecToBit',
+    Nwires: 0,
+    Out_idx: [1, 256],
+    In_idx: [257, 1],
+  },
+  {
+    id: 31,
+    opcode: '',
+    name: 'SubEXP',
+    Nwires: 0,
+    Out_idx: [1, 2],
+    In_idx: [3, 3],
+  },
 ]

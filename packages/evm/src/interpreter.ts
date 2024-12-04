@@ -538,7 +538,7 @@ export class Interpreter {
       console.log(`"memory": ${stringMemory.slice(0, 256)}\n`)
       console.log(`"stackPt": ${JSON.stringify(this._runState.stackPt.getStack(), arrToStr, 2)}\n`)
       console.log(`"memoryPt": ${JSON.stringify(stringMemoryPt, null, 1)}\n`)
-      //console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+      console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
       if (!(name in this.opDebuggers)) {
         this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
       }

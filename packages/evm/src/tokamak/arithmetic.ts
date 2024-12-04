@@ -27,8 +27,10 @@ export type ArithmeticOperator =
   | 'SAR'
   | 'BYTE'
   | 'SIGNEXTEND'
+  | 'DecToBit'
+  | 'SubEXP'
 
-export type ArithmeticFunction = (...args: bigint[]) => bigint
+export type ArithmeticFunction = (...args: bigint[]) => bigint | bigint[]
 
 /**
  * Synthesizer 산술 연산을 처리하는 유틸리티 클래스
@@ -90,6 +92,7 @@ export class ArithmeticOperations {
   }
 
   /**
+   * @deprecated
    * 지수 연산
    */
   static exp(base: bigint, exponent: bigint): bigint {
@@ -206,6 +209,28 @@ export class ArithmeticOperations {
       return value & mask
     }
   }
+
+  /**
+   * Decimal to Bit
+   */
+  static decToBit(dec: bigint): bigint[] {
+    const binaryString = dec.toString(2)
+    const paddedBinaryString = binaryString.padStart(256, '0')
+    const bits = Array.from(paddedBinaryString, bit => BigInt(bit))
+    return bits
+  }
+
+  /**
+   * Subroutine for EXP
+   */
+  static subEXP(c: bigint, a: bigint, b: bigint): bigint[] {
+    if (!(b === 0n || b === 1n) ){
+      throw new Error(`Synthesizer: ArithmeticOperations: subEXP: b is not binary`)
+    }
+    const aOut = a ** 2n
+    const cOut = c * ( b * a + (1n - b) ) // <=> c * (b ? aOut : 1)
+    return [cOut, aOut]
+  }
 }
 
 // 연산자와 함수 매핑
@@ -235,4 +260,6 @@ export const OPERATION_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> =
   SAR: ArithmeticOperations.sar,
   BYTE: ArithmeticOperations.byte,
   SIGNEXTEND: ArithmeticOperations.signextend,
+  DecToBit: ArithmeticOperations.decToBit,
+  SubEXP: ArithmeticOperations.subEXP,
 } as const

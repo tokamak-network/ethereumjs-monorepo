@@ -9,6 +9,7 @@ import type { RunState } from '../interpreter.js'
 import type { ArithmeticOperator } from './arithmetic.js'
 import type { DataAliasInfoEntry, DataAliasInfos } from './memoryPt.js'
 import type { DataPt, Placements } from './type.js'
+import { BIGINT_0, BIGINT_1 } from '@ethereumjs/util'
 
 /**
  * @TODO
@@ -331,11 +332,14 @@ export class Synthesizer {
   }
 
   // 기본값(2)과 다른 입력 개수를 가진 연산들만 정의
+  // To do: subcircuit_info.ts 에서 입출력 갯수 가져오기
   private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
     ADDMOD: 3,
     MULMOD: 3,
     ISZERO: 1,
     NOT: 1,
+    DecToBit: 1,
+    SubEXP: 3,
   } as const
 
   private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
@@ -345,18 +349,32 @@ export class Synthesizer {
     SynthesizerValidator.validateInputs(inPts)
   }
 
-  private executeOperation(name: ArithmeticOperator, values: bigint[]): bigint {
+  private executeOperation(name: ArithmeticOperator, values: bigint[]): bigint | bigint[] {
     const operation = OPERATION_MAPPING[name]
     return operation(...values)
   }
 
-  private createOutputPoint(value: bigint): DataPt {
-    return this.createNewDataPoint({
-      sourceId: this.placementIndex,
-      sourceIndex: 0,
-      value,
-      sourceSize: 32,
-    })
+  private createOutputPoints(value: bigint | bigint[]): DataPt[] {
+    if (Array.isArray(value)) {
+      const outPts: DataPt[] = []
+      for (let ind = 0; ind < value.length; ind++){
+        outPts.push( this.createNewDataPoint({
+          sourceId: this.placementIndex,
+          sourceIndex: ind,
+          value: value[ind],
+          sourceSize: 32,
+        }))
+      }
+      return outPts
+
+    } else {
+      return [this.createNewDataPoint({
+        sourceId: this.placementIndex,
+        sourceIndex: 0,
+        value,
+        sourceSize: 32,
+      })]
+    }
   }
 
   private handleBinaryOp(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
@@ -369,7 +387,7 @@ export class Synthesizer {
       const outValue = this.executeOperation(name, values)
 
       // 3. 출력값 생성
-      const outPts = [this.createOutputPoint(outValue)]
+      const outPts = this.createOutputPoints(outValue)
 
       // 4. 배치 추가
       this._place(name, inPts, outPts)
@@ -399,6 +417,32 @@ export class Synthesizer {
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     SynthesizerValidator.validateSubcircuitName(name, this.subcircuitNames)
     return this.handleBinaryOp(name, inPts)
+  }
+
+  public placeEXP(inPts: DataPt[]): DataPt {
+    SynthesizerValidator.validateSubcircuitName('EXP', this.subcircuitNames)
+    // a^b
+    const aPt = inPts[0]
+    const bPt = inPts[1]
+    const bNum = Number(bPt.value)
+    const k = Math.floor(Math.log2(bNum)) + 1 //bit length of b
+
+    const bitifyOutPts = this.placeArith('DecToBit', [bPt]).reverse()
+    // LSB at index 0
+
+    const chPts: DataPt[] = []
+    const ahPts: DataPt[] = []
+    chPts.push(this.loadAuxin(BIGINT_1))
+    ahPts.push(aPt)
+
+    for ( let i = 1; i <= k; i++ ){
+      const _inPts = [chPts[i-1], ahPts[i-1], bitifyOutPts[i-1]]
+      const _outPts = this.placeArith('SubEXP', _inPts)
+      chPts.push(_outPts[0])
+      ahPts.push(_outPts[1])
+    }
+
+    return chPts[chPts.length-1]
   }
 
   /**
