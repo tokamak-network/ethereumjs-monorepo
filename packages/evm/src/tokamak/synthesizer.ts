@@ -48,6 +48,31 @@ export class Synthesizer {
   }
 
   /**
+   * LOAD 서브서킷에 새로운 입출력 쌍을 추가합니다.
+   * @param pointerIn - 입력 데이터 포인트
+   * @returns 생성된 출력 데이터 포인트
+   * @private
+   */
+  private _addToLoadPlacement(pointerIn: DataPt): DataPt {
+    // 기존 output list의 길이를 새로운 출력의 인덱스로 사용
+    const outOffset = this.placements.get(0)!.outPts.length
+
+    // 출력 데이터 포인트 생성
+    const pointerOut = DataPointFactory.create({
+      sourceId: 0,
+      sourceIndex: outOffset,
+      value: pointerIn.value,
+      sourceSize: DEFAULT_SOURCE_SIZE,
+    })
+
+    // LOAD 서브서킷에 입출력 추가
+    this.placements.get(0)!.inPts.push(pointerIn)
+    this.placements.get(0)!.outPts.push(pointerOut)
+
+    return this.placements.get(0)!.outPts[outOffset]
+  }
+
+  /**
    * PUSH 명령어에 의한 새로운 LOAD 배치의 입출력 쌍을 추가합니다.
    *
    * @param {string} codeAddress - PUSH가 실행 된 코드의 address.
@@ -93,18 +118,7 @@ export class Synthesizer {
       sourceSize: DEFAULT_SOURCE_SIZE,
     })
 
-    // 기존 output list에 이어서 추가
-    const outOffset = this.placements.get(0)!.outPts.length
-    const pointerOut: DataPt = DataPointFactory.create({
-      sourceId: 0,
-      sourceIndex: outOffset,
-      value: auxValue,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    })
-    this.placements.get(0)!.inPts.push(pointerIn)
-    this.placements.get(0)!.outPts.push(pointerOut)
-
-    return this.placements.get(0)!.outPts[outOffset]
+    return this._addToLoadPlacement(pointerIn)
   }
 
   public loadEnvInf(source: string, value: bigint, offset?: number, size?: number): DataPt {
@@ -118,18 +132,7 @@ export class Synthesizer {
       sourceSize,
     })
 
-    // 기존 output list에 이어서 추가
-    const outIndex = this.placements.get(0)!.outPts.length
-    const pointerOut: DataPt = DataPointFactory.create({
-      sourceId: 0,
-      sourceIndex: outIndex,
-      value,
-      sourceSize,
-    })
-    this.placements.get(0)!.inPts.push(pointerIn)
-    this.placements.get(0)!.outPts.push(pointerOut)
-
-    return this.placements.get(0)!.outPts[outIndex]
+    return this._addToLoadPlacement(pointerIn)
   }
 
   /**
