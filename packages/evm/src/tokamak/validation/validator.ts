@@ -1,6 +1,6 @@
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
-import type { DataPt } from './type.js'
+import type { DataPt } from '../types/index.js'
 
 /**
  * Synthesizer 관련 유효성 검사를 담당하는 클래스
@@ -10,7 +10,7 @@ export class SynthesizerValidator {
    * 입력 개수가 예상된 개수와 일치하는지 검증합니다.
    *
    * @param name 연산자 이름
-   * @param actual 실제 입력 개수
+   * @param actual 실제 입력 개수Fevm
    * @param expected 예상되는 입력 개수
    * @throws {InvalidInputCountError} 입력 개수가 일치하지 않을 경우
    */

@@ -6,10 +6,10 @@ import {
   // setLengthRight,
 } from '@ethereumjs/util'
 
-import { Memory } from '../memory.js'
+import { Memory } from '../../memory.js'
 
-import type { RunState } from '../interpreter.js'
-import type { DataPt } from './type.js'
+import type { RunState } from '../../interpreter.js'
+import type { DataPt } from '../types/index.js'
 
 /**
  * Memory vs MemoryPt 클래스의 주요 차이점

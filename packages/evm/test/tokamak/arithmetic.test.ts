@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ArithmeticOperations } from '../../src/tokamak/arithmetic.js'
+import { ArithmeticOperations } from '../../src/tokamak/operations/arithmetic.js'
 
 describe('ArithmeticOperations', () => {
   it('should handle SLT operation correctly', () => {

@@ -1,3 +1,5 @@
+import { BIGINT_0, BIGINT_1 } from '@ethereumjs/util'
+
 import {
   DEFAULT_SOURCE_SIZE,
   INITIAL_PLACEMENT,
@@ -6,6 +8,7 @@ import {
 } from '../constant/index.js'
 import { type ArithmeticOperator, OPERATION_MAPPING } from '../operations/index.js'
 import { DataPointFactory } from '../pointers/index.js'
+import { addPlacement } from '../utils/utils.js'
 import {
   InvalidInputCountError,
   SynthesizerError,
@@ -15,7 +18,6 @@ import {
 import type { RunState } from '../../interpreter.js'
 import type { DataAliasInfoEntry, DataAliasInfos } from '../pointers/index.js'
 import type { DataPt, Placements } from '../types/index.js'
-
 /**
  * @TODO
  *
@@ -183,6 +185,32 @@ export class Synthesizer {
     return outPt
   }
 
+  public placeEXP(inPts: DataPt[]): DataPt {
+    SynthesizerValidator.validateSubcircuitName('EXP', this.subcircuitNames)
+    // a^b
+    const aPt = inPts[0]
+    const bPt = inPts[1]
+    const bNum = Number(bPt.value)
+    const k = Math.floor(Math.log2(bNum)) + 1 //bit length of b
+
+    const bitifyOutPts = this.placeArith('DecToBit', [bPt]).reverse()
+    // LSB at index 0
+
+    const chPts: DataPt[] = []
+    const ahPts: DataPt[] = []
+    chPts.push(this.loadAuxin(BIGINT_1))
+    ahPts.push(aPt)
+
+    for (let i = 1; i <= k; i++) {
+      const _inPts = [chPts[i - 1], ahPts[i - 1], bitifyOutPts[i - 1]]
+      const _outPts = this.placeArith('SubEXP', _inPts)
+      chPts.push(_outPts[0])
+      ahPts.push(_outPts[1])
+    }
+
+    return chPts[chPts.length - 1]
+  }
+
   /**
    * 새로운 MLOAD 배치를 추가합니다.
    *
@@ -312,6 +340,8 @@ export class Synthesizer {
     MULMOD: 3,
     ISZERO: 1,
     NOT: 1,
+    DecToBit: 1,
+    SubEXP: 3,
   } as const
 
   private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
@@ -321,7 +351,7 @@ export class Synthesizer {
     SynthesizerValidator.validateInputs(inPts)
   }
 
-  private executeOperation(name: ArithmeticOperator, values: bigint[]): bigint {
+  private executeOperation(name: ArithmeticOperator, values: bigint[]): bigint | bigint[] {
     const operation = OPERATION_MAPPING[name]
     return operation(...values)
   }
@@ -345,7 +375,9 @@ export class Synthesizer {
       const outValue = this.executeOperation(name, values)
 
       // 3. 출력값 생성
-      const outPts = [this.createOutputPoint(outValue)]
+      const outPts = Array.isArray(outValue)
+        ? outValue.map((value) => this.createOutputPoint(value))
+        : [this.createOutputPoint(outValue)]
 
       // 4. 배치 추가
       this._place(name, inPts, outPts)

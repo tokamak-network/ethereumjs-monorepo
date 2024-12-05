@@ -23,14 +23,14 @@ import { Memory } from './memory.js'
 import { Message } from './message.js'
 import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
-import { MemoryPt } from './tokamak/memoryPt.js'
+import { MemoryPt } from './tokamak/pointers/memoryPt.js'
 import { StackPt } from './tokamak/pointers/stackPt.js'
 
 import type { EVM } from './evm.js'
 import type { Journal } from './journal.js'
 import type { AsyncOpHandler, Opcode, OpcodeMapEntry } from './opcodes/index.js'
-import type { MemoryPts } from './tokamak/memoryPt.js'
-import type { Synthesizer } from './tokamak/synthesizer.js'
+import type { Synthesizer } from './tokamak/core/index.js'
+import type { MemoryPts } from './tokamak/pointers/memoryPt.js'
 import type {
   Block,
   EOFEnv,

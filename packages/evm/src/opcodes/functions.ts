@@ -33,7 +33,6 @@ import { EOFContainer, EOFContainerMode } from '../eof/container.js'
 import { EOFError } from '../eof/errors.js'
 import { EOFBYTES, EOFHASH, isEOF } from '../eof/util.js'
 import { ERROR } from '../exceptions.js'
-import { copyMemoryRegion, simulateMemoryPt } from '../tokamak/memoryPt.js'
 import { DELEGATION_7702_FLAG } from '../types.js'
 
 import {
@@ -50,8 +49,8 @@ import {
 } from './util.js'
 
 import type { RunState } from '../interpreter.js'
-import type { MemoryPtEntry, MemoryPts } from '../tokamak/memoryPt.js'
-import type { DataPt } from '../tokamak/synthesizer.js'
+import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
+import type { DataPt } from '../tokamak/types/index.js'
 import type { Common } from '@ethereumjs/common'
 
 export interface SyncOpHandler {
@@ -286,8 +285,8 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('EXP', inPts)
-      runState.stackPt.push(outPts[0])
+      const outPt = runState.synthesizer.placeEXP(inPts)
+      runState.stackPt.push(outPt)
     },
   ],
   // 0x0b: SIGNEXTEND

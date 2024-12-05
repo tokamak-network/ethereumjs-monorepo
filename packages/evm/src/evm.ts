@@ -28,7 +28,7 @@ import { Message } from './message.js'
 import { getOpcodesForHF } from './opcodes/index.js'
 import { paramsEVM } from './params.js'
 import { NobleBLS, getActivePrecompiles, getPrecompileName } from './precompiles/index.js'
-import { Synthesizer } from './tokamak/synthesizer.js'
+import { Synthesizer } from './tokamak/core/synthesizer.js'
 import { TransientStorage } from './transientStorage.js'
 import {
   type Block,
@@ -438,7 +438,7 @@ export class EVM implements EVMInterface {
             returnValue: new Uint8Array(0),
             exceptionError: new EvmError(ERROR.INITCODE_SIZE_VIOLATION),
             executionGasUsed: message.gasLimit,
-            returnMemoryPts: []
+            returnMemoryPts: [],
           },
         }
       }
@@ -496,7 +496,7 @@ export class EVM implements EVMInterface {
           returnValue: new Uint8Array(0),
           exceptionError: new EvmError(ERROR.CREATE_COLLISION),
           executionGasUsed: message.gasLimit,
-          returnMemoryPts: []
+          returnMemoryPts: [],
         },
       }
     }
@@ -571,7 +571,7 @@ export class EVM implements EVMInterface {
           gasRefund: message.gasRefund,
           exceptionError: errorMessage, // only defined if addToBalance failed
           returnValue: new Uint8Array(0),
-          returnMemoryPts: []
+          returnMemoryPts: [],
         },
       }
     }
@@ -766,7 +766,7 @@ export class EVM implements EVMInterface {
       blobVersionedHashes: message.blobVersionedHashes ?? [],
       accessWitness: message.accessWitness,
       createdAddresses: message.createdAddresses,
-      callMemoryPts: message.memoryPts ?? []
+      callMemoryPts: message.memoryPts ?? [],
     }
 
     const interpreter = new Interpreter(
@@ -820,7 +820,7 @@ export class EVM implements EVMInterface {
       executionGasUsed: gasUsed,
       gasRefund: interpreterRes.runState!.gasRefund,
       returnValue: result.returnValue ? result.returnValue : new Uint8Array(0),
-      returnMemoryPts: result.returnMemoryPts ? result.returnMemoryPts : []
+      returnMemoryPts: result.returnMemoryPts ? result.returnMemoryPts : [],
     }
   }
 
@@ -1143,7 +1143,7 @@ export function OOGResult(gasLimit: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasLimit,
     exceptionError: new EvmError(ERROR.OUT_OF_GAS),
-    returnMemoryPts: []
+    returnMemoryPts: [],
   }
 }
 // CodeDeposit OOG Result
@@ -1152,7 +1152,7 @@ export function COOGResult(gasUsedCreateCode: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasUsedCreateCode,
     exceptionError: new EvmError(ERROR.CODESTORE_OUT_OF_GAS),
-    returnMemoryPts: []
+    returnMemoryPts: [],
   }
 }
 
@@ -1161,7 +1161,7 @@ export function INVALID_BYTECODE_RESULT(gasLimit: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasLimit,
     exceptionError: new EvmError(ERROR.INVALID_BYTECODE_RESULT),
-    returnMemoryPts: []
+    returnMemoryPts: [],
   }
 }
 
@@ -1170,7 +1170,7 @@ export function INVALID_EOF_RESULT(gasLimit: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasLimit,
     exceptionError: new EvmError(ERROR.INVALID_EOF_FORMAT),
-    returnMemoryPts: []
+    returnMemoryPts: [],
   }
 }
 
@@ -1179,7 +1179,7 @@ export function CodesizeExceedsMaximumError(gasUsed: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasUsed,
     exceptionError: new EvmError(ERROR.CODESIZE_EXCEEDS_MAXIMUM),
-    returnMemoryPts: []
+    returnMemoryPts: [],
   }
 }
 
@@ -1188,7 +1188,7 @@ export function EvmErrorResult(error: EvmError, gasUsed: bigint): ExecResult {
     returnValue: new Uint8Array(0),
     executionGasUsed: gasUsed,
     exceptionError: error,
-    returnMemoryPts: []
+    returnMemoryPts: [],
   }
 }
 

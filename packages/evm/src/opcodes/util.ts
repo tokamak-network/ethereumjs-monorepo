@@ -16,12 +16,12 @@ import {
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EvmError } from '../exceptions.js'
+import { copyMemoryRegion } from '../tokamak/pointers/index.js'
 
 import type { ERROR } from '../exceptions.js'
 import type { RunState } from '../interpreter.js'
 import type { Common } from '@ethereumjs/common'
 import type { Address } from '@ethereumjs/util'
-import { copyMemoryRegion, MemoryPt, MemoryPts } from '../tokamak/memoryPt.js'
 
 const MASK_160 = (BIGINT_1 << BIGINT_160) - BIGINT_1
 
@@ -209,12 +209,12 @@ export function writeCallOutput(runState: RunState, outOffset: bigint, outLength
   const returnMemoryPts = runState.interpreter.getReturnMemoryPts()
   if (returnMemoryPts.length > 0) {
     const acceptMemoryPts = copyMemoryRegion(runState, BIGINT_0, outLength, returnMemoryPts)
-    for (const entry of acceptMemoryPts){
+    for (const entry of acceptMemoryPts) {
       // the lower index, the older data
       runState.memoryPt.write(
         Number(outOffset) + entry.memOffset,
         entry.containerSize,
-        entry.dataPt
+        entry.dataPt,
       )
     }
   }
