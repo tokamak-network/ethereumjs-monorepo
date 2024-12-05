@@ -1,10 +1,10 @@
 import { BIGINT_0, createZeroAddress } from '@ethereumjs/util'
 
 import type { PrecompileFunc } from './precompiles/index.js'
+import type { MemoryPts } from './tokamak/pointers/index.js'
 import type { EOFEnv } from './types.js'
 import type { VerkleAccessWitnessInterface } from '@ethereumjs/common'
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
-import { MemoryPts } from './tokamak/memoryPt.js'
 
 const defaults = {
   value: BIGINT_0,

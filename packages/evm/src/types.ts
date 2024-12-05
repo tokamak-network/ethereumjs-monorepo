@@ -6,6 +6,7 @@ import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/ga
 import type { OpHandler } from './opcodes/index.js'
 import type { CustomPrecompile } from './precompiles/index.js'
 import type { PrecompileFunc } from './precompiles/types.js'
+import type { MemoryPts } from './tokamak/pointers/index.js'
 import type {
   Common,
   ParamsDict,
@@ -14,7 +15,6 @@ import type {
 } from '@ethereumjs/common'
 import type { Account, Address, PrefixedHexString } from '@ethereumjs/util'
 import type { EventEmitter } from 'eventemitter3'
-import { MemoryPts } from './tokamak/memoryPt.js'
 
 export type DeleteOpcode = {
   opcode: number
