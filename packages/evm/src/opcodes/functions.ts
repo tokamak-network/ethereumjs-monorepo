@@ -581,6 +581,14 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       const address = bytesToBigInt(runState.interpreter.getAddress().bytes)
       runState.stack.push(address)
+
+      // For Synthesizer //
+      const dataPt = runState.synthesizer.loadEnvInf(
+        runState.env.address.toString(),
+        'ADDRESS',
+        address,
+      )
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x31: BALANCE
@@ -591,20 +599,52 @@ export const handlers: Map<number, OpHandler> = new Map([
       const address = createAddressFromStackBigInt(addressBigInt)
       const balance = await runState.interpreter.getExternalBalance(address)
       runState.stack.push(balance)
+
+      const _addressBigInt = runState.stackPt.pop().value
+      if (_addressBigInt !== addressBigInt) {
+        throw new Error(`Synthesizer: BALANCE: Input data mismatch`)
+      }
+
+      // For Synthesizer //
+      const dataPt = runState.synthesizer.loadEnvInf(
+        address.toString(),
+        'BALANCE',
+        balance,
+      )
+      runState.stackPt.push(dataPt)
+
     },
   ],
   // 0x32: ORIGIN
   [
     0x32,
     function (runState) {
-      runState.stack.push(runState.interpreter.getTxOrigin())
+      const value = runState.interpreter.getTxOrigin() 
+      runState.stack.push(value)
+
+      // For Synthesizer //
+      const dataPt = runState.synthesizer.loadEnvInf(
+        runState.env.address.toString(),
+        'ORIGIN',
+        value,
+      )
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x33: CALLER
   [
     0x33,
     function (runState) {
-      runState.stack.push(runState.interpreter.getCaller())
+      const value = runState.interpreter.getCaller()
+      runState.stack.push(value)
+
+      // For Synthesizer //
+      const dataPt = runState.synthesizer.loadEnvInf(
+        runState.env.address.toString(),
+        'CALLER',
+        value,
+      )
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x34: CALLVALUE
@@ -615,13 +655,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(value)
 
       // For Synthesizer //
-      const dataPt: DataPt = {
-        source: 'callvalue',
-        sourceIndex: 0,
-        sourceSize: 32,
+      const dataPt = runState.synthesizer.loadEnvInf(
+        runState.env.address.toString(),
+        'CALLVALUE',
         value,
-        valueHex: value.toString(16),
-      }
+      )
       runState.stackPt.push(dataPt)
     },
   ],
@@ -671,7 +709,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         }
       } else {
         // Case: The calldata is originated from Environmental Information
-        dataPtToLoad = runState.synthesizer.loadEnvInf('calldata', r, i)
+        dataPtToLoad = runState.synthesizer.loadEnvInf(runState.env.address.toString(), 'calldata', r, i)
       }
       runState.stackPt.push(dataPtToLoad)
 
@@ -684,17 +722,16 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x36,
     function (runState) {
-      const r = runState.interpreter.getCallDataSize()
-      runState.stack.push(r)
+      const value = runState.interpreter.getCallDataSize()
+      runState.stack.push(value)
 
       // For Synthesizer //
-      runState.stackPt.push({
-        source: 'CALLDATASIZE',
-        sourceIndex: 0,
-        sourceSize: 1,
-        value: BigInt(r),
-        valueHex: r.toString(16),
-      })
+      const dataPt = runState.synthesizer.loadEnvInf(
+        runState.env.address.toString(),
+        'CALLDATASIZE',
+        value,
+      )
+      runState.stackPt.push(dataPt)
     },
   ],
   // 0x37: CALLDATACOPY
@@ -729,6 +766,7 @@ export const handlers: Map<number, OpHandler> = new Map([
             memOffset: 0,
             containerSize: dataLengthNum,
             dataPt: runState.synthesizer.loadEnvInf(
+              runState.env.address.toString(),
               'calldata',
               bytesToBigInt(data),
               dataOffsetNum,

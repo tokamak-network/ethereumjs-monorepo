@@ -2,6 +2,7 @@ import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
 import type { DataPt } from '../types/index.js'
 
+
 /**
  * Synthesizer 관련 유효성 검사를 담당하는 클래스
  */
@@ -73,6 +74,9 @@ export class SynthesizerValidator {
   static validateValue(value: bigint): void {
     if (value < 0n) {
       throw new Error('Negative values are not allowed')
+    }
+    if (value > 2n**256n -1n) {
+      throw new Error('The value exceeds Ethereum word size')
     }
   }
 }

@@ -1,3 +1,4 @@
+import { exponentiation } from '../../opcodes/util.js'
 import { convertToSigned } from '../utils/index.js'
 
 // 연산자 타입 정의
@@ -32,12 +33,16 @@ export type ArithmeticOperator =
 
 export type ArithmeticFunction = (...args: bigint[]) => bigint | bigint[]
 
+
+
 /**
  * Synthesizer 산술 연산을 처리하는 유틸리티 클래스
  */
 export class ArithmeticOperations {
   private static readonly MAX_UINT256 = (1n << 256n) - 1n
   private static readonly SIGN_BIT = 1n << 255n
+  // const N은 opcodes/utils.ts 에서 복사해왔습니다. EXP에서 사용하는 모듈로인데, 왜 이 숫자를 사용하는지는 모르겠네요...
+  private static readonly N = BigInt(115792089237316195423570985008687907853269984665640564039457584007913129639936)
 
   /**
    * 기본 산술 연산
@@ -227,8 +232,8 @@ export class ArithmeticOperations {
     if (!(b === 0n || b === 1n)) {
       throw new Error(`Synthesizer: ArithmeticOperations: subEXP: b is not binary`)
     }
-    const aOut = a ** 2n
-    const cOut = c * (b * a + (1n - b)) // <=> c * (b ? aOut : 1)
+    const aOut = a * a % ArithmeticOperations.N
+    const cOut = ( c * (b * a + (1n - b)) ) % ArithmeticOperations.N // <=> c * (b ? aOut : 1)
     return [cOut, aOut]
   }
 }

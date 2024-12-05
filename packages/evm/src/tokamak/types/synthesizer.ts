@@ -1,3 +1,4 @@
+
 /**
  * @property { number } subcircuitId - 서브서킷의 식별자.
  * @property {number} nWire - 서브서킷의 와이어 수.
@@ -35,19 +36,23 @@ export type SubcircuitId = {
 }
 
 /**
- * @property {string | number} source - 데이터 소스의 식별자. 문자열 또는 숫자.
- * @property {number} sourceOffset - 데이터 소스 내에서의 위치를 나타내는 오프셋.
+ * @property {string | number } source - Where the data is from. If the source is a string, it should be a stringfied address of which the code is running. If it is a number, it is a placement key.  See "functions.ts" for detail
+ * @property {string} type? - The type of data, when the source is either an address or 'block'. E.g., 'hardcoded', 'BLOCKHASH', 'CALLDATA'. See "functions.ts" for detail
+ * @property {number} wireIndex? - The index of wire at which the data is from, when the source is a placement key (= subcircuit).
+ * @property {number} offset? - The offset at which the data is read, when the source is string and the type either 'hardcoded' or 'CALLDATA'.
  * @property {number} sourceSize - 데이터의 실제 크기.
  * @property {bigint} value - 데이터 값.
  * @property {string} valuestr - 데이터 값을 16진수 문자열로 표현한 값.
  */
-export type DataPt = {
+export interface CreateDataPointParams {
   source: string | number
-  sourceIndex: number
+  type?: string
+  wireIndex?: number
+  offset?: number
   sourceSize: number
   value: bigint
-  valueHex: string
 }
+export type DataPt = CreateDataPointParams & { valueHex: string }
 
 export type PlacementEntry = {
   name: string
@@ -56,17 +61,4 @@ export type PlacementEntry = {
 }
 
 export type Placements = Map<number, PlacementEntry>
-
-/**
- * 데이터 포인트 생성에 필요한 파라미터 인터페이스
- * @property sourceId - 데이터 소스의 식별자 (예: 코드 주소, 'auxin', 'CALLDATALOAD' 등)
- * @property sourceIndex - 데이터 소스 내에서의 위치를 나타내는 인덱스
- * @property value - 실제 데이터 값
- * @property sourceSize - 데이터의 크기 (바이트 단위)
- */
-export interface CreateDataPointParams {
-  sourceId: string | number
-  sourceIndex: number
-  value: bigint
-  sourceSize: number
-}
+export type Auxin = Map<bigint, number>

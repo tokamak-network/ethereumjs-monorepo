@@ -31,3 +31,18 @@ export const convertToSigned = (value: bigint): bigint => {
   const SIGN_BIT = 1n << 255n
   return (value & SIGN_BIT) !== 0n ? value - (1n << 256n) : value
 }
+
+// 디버깅 툴
+export const mapToStr = (map: Map<any, any>) => {
+  return Object.fromEntries(
+    Array.from(map, ([key, value]) => [
+      key,
+      JSON.parse(JSON.stringify(value, (k, v) => (typeof v === 'bigint' ? v.toString() : v))),
+    ]),
+  )
+}
+
+// 디버깅 툴
+export function arrToStr(key: string, value: any) {
+  return typeof value === 'bigint' ? value.toString() : value
+}

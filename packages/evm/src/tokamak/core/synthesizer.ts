@@ -15,9 +15,8 @@ import {
   SynthesizerValidator,
 } from '../validation/index.js'
 
-import type { RunState } from '../../interpreter.js'
 import type { DataAliasInfoEntry, DataAliasInfos } from '../pointers/index.js'
-import type { DataPt, Placements } from '../types/index.js'
+import type { Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
 /**
  * @TODO
  *
@@ -39,8 +38,8 @@ import type { DataPt, Placements } from '../types/index.js'
  */
 export class Synthesizer {
   public placements: Placements
-  public auxin: bigint[]
-  public envInf: Map<string, bigint>
+  public auxin: Auxin
+  public envInf: Map<string, {value: bigint, wireIndex: number}>
   protected placementIndex: number
   private subcircuitNames
 
@@ -48,7 +47,7 @@ export class Synthesizer {
     this.placements = new Map()
     this.placements.set(0, INITIAL_PLACEMENT)
 
-    this.auxin = []
+    this.auxin = new Map()
     this.envInf = new Map()
     this.placementIndex = INITIAL_PLACEMENT_INDEX
     this.subcircuitNames = subcircuits.map((circuit) => circuit.name)
@@ -62,21 +61,25 @@ export class Synthesizer {
    */
   private _addToLoadPlacement(pointerIn: DataPt): DataPt {
     // 기존 output list의 길이를 새로운 출력의 인덱스로 사용
-    const outOffset = this.placements.get(0)!.outPts.length
+    if ( this.placements.get(0)!.inPts.length != this.placements.get(0)!.outPts.length ){
+      throw new Error(`Mismatches in the Load wires`)
+    }
+    const outWireIndex = this.placements.get(0)!.outPts.length
 
     // 출력 데이터 포인트 생성
-    const pointerOut = DataPointFactory.create({
-      sourceId: 0,
-      sourceIndex: outOffset,
+    const outPtRaw: CreateDataPointParams = {
+      source: 0,
+      wireIndex: outWireIndex,
       value: pointerIn.value,
       sourceSize: DEFAULT_SOURCE_SIZE,
-    })
+    }
+    const pointerOut = DataPointFactory.create(outPtRaw)
 
     // LOAD 서브서킷에 입출력 추가
     this.placements.get(0)!.inPts.push(pointerIn)
     this.placements.get(0)!.outPts.push(pointerOut)
 
-    return this.placements.get(0)!.outPts[outOffset]
+    return this.placements.get(0)!.outPts[outWireIndex]
   }
 
   /**
@@ -93,53 +96,58 @@ export class Synthesizer {
     value: bigint,
     size: number,
   ): DataPt {
-    const pointerIn: DataPt = DataPointFactory.create({
-      sourceId: `code: ${codeAddress}`,
-      sourceIndex: programCounter + 1,
+    const inPtRaw: CreateDataPointParams = {
+      source: `code: ${codeAddress}`,
+      type: 'hardcoded',
+      offset: programCounter + 1,
       value,
       sourceSize: size,
-    })
+    }
+    const pointerIn: DataPt = DataPointFactory.create(inPtRaw)
 
-    // 기존 output list에 이어서 추가
-    const outOffset = this.placements.get(0)!.outPts.length
-    const pointerOut: DataPt = DataPointFactory.create({
-      sourceId: 0,
-      sourceIndex: outOffset,
-      value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    })
-    this.placements.get(0)!.inPts.push(pointerIn)
-    this.placements.get(0)!.outPts.push(pointerOut)
-
-    return this.placements.get(0)!.outPts[outOffset]
+    return this._addToLoadPlacement(pointerIn)
   }
 
   public loadAuxin(value: bigint): DataPt {
-    this.auxin.push(value)
-    const auxinIndex = this.auxin.length - 1
-    const auxValue = this.auxin[auxinIndex]
-    const pointerIn = DataPointFactory.create({
-      sourceId: 'auxin',
-      sourceIndex: auxinIndex,
-      value: auxValue,
+    if ( this.auxin.has(value) ) {
+      return this.placements.get(0)!.outPts[this.auxin.get(value)!]
+    }
+    const inPtRaw: CreateDataPointParams = {
+      source: 'auxin',
+      value,
       sourceSize: DEFAULT_SOURCE_SIZE,
-    })
-
-    return this._addToLoadPlacement(pointerIn)
+    }
+    const pointerIn = DataPointFactory.create(inPtRaw)
+    const outPt = this._addToLoadPlacement(pointerIn)
+    this.auxin.set(value, outPt.wireIndex!)
+    return outPt
   }
 
-  public loadEnvInf(source: string, value: bigint, offset?: number, size?: number): DataPt {
-    this.envInf.set(source, value)
-    const index = offset ?? 0
+  public loadEnvInf(codeAddress: string, type: string, value: bigint, _offset?: number, size?: number): DataPt {
+    const offset = _offset ?? 0
+    const whereItFrom = {
+      source: `code: ${codeAddress}`,
+      type: type,
+      offset: offset
+    }
+    const key = JSON.stringify(whereItFrom)
+    if ( this.envInf.has(key) ) {
+      return this.placements.get(0)!.outPts[this.envInf.get(key)!.wireIndex]
+    }
     const sourceSize = size ?? DEFAULT_SOURCE_SIZE
-    const pointerIn = DataPointFactory.create({
-      sourceId: source,
-      sourceIndex: index,
-      value,
-      sourceSize,
-    })
-
-    return this._addToLoadPlacement(pointerIn)
+    const inPtRaw: CreateDataPointParams = {
+      ...whereItFrom,
+      value: value,
+      sourceSize: sourceSize
+    }
+    const pointerIn = DataPointFactory.create(inPtRaw)
+    const outPt = this._addToLoadPlacement(pointerIn)
+    const envInfEntry = {
+      value: value,
+      wireIndex: outPt.wireIndex!
+    }
+    this.envInf.set(key, envInfEntry)
+    return outPt
   }
 
   /**
@@ -167,14 +175,13 @@ export class Synthesizer {
       if (dataPt.value !== outValue) {
         const subcircuitName = 'AND'
         const inPts: DataPt[] = [this.loadAuxin(BigInt(maskerString)), dataPt]
-        const outPts: DataPt[] = [
-          DataPointFactory.create({
-            sourceId: this.placementIndex,
-            sourceIndex: 0,
-            value: outValue,
-            sourceSize: truncSize,
-          }),
-        ]
+        const rawOutPt: CreateDataPointParams = {
+          source: this.placementIndex,
+          wireIndex: 0,
+          value: outValue,
+          sourceSize: truncSize,
+        }
+        const outPts: DataPt[] = [DataPointFactory.create(rawOutPt)]
         this._place(subcircuitName, inPts, outPts)
 
         return outPts[0]
@@ -295,45 +302,7 @@ export class Synthesizer {
   // }
 
   //# TODO: newDataPt size 변수 검증 필요
-  /**
-   * CALLDATALOAD 배치를 추가합니다.
-   *
-   * @param {RunState} runState - 실행 상태 객체.
-   * @param {bigint} offset - 호출 데이터의 시작 오프셋.
-   * @returns {DataPt} 생성된 데이터 포인트.
-   *
-   */
-  public newPlacementCALLDATALOAD(runState: RunState, offset: bigint) {
-    const inPt = DataPointFactory.create({
-      sourceId: 'CALLDATALOAD',
-      sourceIndex: 0,
-      value: offset,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    })
-
-    // Get calldata slice and convert to bigint
-    const calldata = runState.interpreter.getCallData()
-    const slice = calldata.slice(Number(offset), Number(offset) + 32)
-
-    // Convert Uint8Array to hex string
-    const hexString = Array.from(slice)
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('')
-    const value = BigInt('0x' + hexString)
-
-    const outPt = DataPointFactory.create({
-      sourceId: this.placementIndex,
-      sourceIndex: Number(offset),
-      value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    })
-
-    // Place the subcircuit
-    this._place('CALLDATALOAD', [inPt], [outPt])
-
-    return outPt
-  }
-
+  
   // 기본값(2)과 다른 입력 개수를 가진 연산들만 정의
   private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
     ADDMOD: 3,
@@ -356,12 +325,13 @@ export class Synthesizer {
     return operation(...values)
   }
 
-  private createOutputPoint(value: bigint): DataPt {
+  private createOutputPoint(value: bigint, _wireIndex?: number): DataPt {
+    const wireIndex = _wireIndex ?? 0
     return DataPointFactory.create({
-      sourceId: this.placementIndex,
-      sourceIndex: 0,
+      source: this.placementIndex,
+      wireIndex: wireIndex,
       value,
-      sourceSize: 32,
+      sourceSize: DEFAULT_SOURCE_SIZE,
     })
   }
 
@@ -375,8 +345,9 @@ export class Synthesizer {
       const outValue = this.executeOperation(name, values)
 
       // 3. 출력값 생성
+      let wireIndex = 0
       const outPts = Array.isArray(outValue)
-        ? outValue.map((value) => this.createOutputPoint(value))
+        ? outValue.map((value) => this.createOutputPoint(value, wireIndex++))
         : [this.createOutputPoint(outValue)]
 
       // 4. 배치 추가

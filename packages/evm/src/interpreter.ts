@@ -45,6 +45,7 @@ import type {
   VerkleAccessWitnessInterface,
 } from '@ethereumjs/common'
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
+import { arrToStr, mapToStr } from './tokamak/utils/index.js'
 
 const debugGas = debugDefault('evm:gas')
 
@@ -506,22 +507,8 @@ export class Interpreter {
         })
       }
 
-      function arrToStr(key: string, value: any) {
-        return typeof value === 'bigint' ? value.toString() : value
-      }
-
-      const mapToStr = (map: Map<any, any>) => {
-        return Object.fromEntries(
-          Array.from(map, ([key, value]) => [
-            key,
-            JSON.parse(JSON.stringify(value, (k, v) => (typeof v === 'bigint' ? v.toString() : v))),
-          ]),
-        )
-      }
-
       const stringMemory = Buffer.from(this._runState.memory._store).toString('hex')
       const stringMemoryPt = mapToStr(this._runState.memoryPt._storePt)
-      const stringPlacements = mapToStr(this._runState.synthesizer.placements)
 
       const name = eventObj.opcode.name
 
@@ -538,7 +525,7 @@ export class Interpreter {
       console.log(`"memory": ${stringMemory.slice(0, 256)}\n`)
       console.log(`"stackPt": ${JSON.stringify(this._runState.stackPt.getStack(), arrToStr, 2)}\n`)
       console.log(`"memoryPt": ${JSON.stringify(stringMemoryPt, null, 1)}\n`)
-      //console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+
       if (!(name in this.opDebuggers)) {
         this.opDebuggers[name] = debugDefault(`evm:ops:${name}`)
       }
