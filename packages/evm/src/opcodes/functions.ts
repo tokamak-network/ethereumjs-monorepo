@@ -33,6 +33,7 @@ import { EOFContainer, EOFContainerMode } from '../eof/container.js'
 import { EOFError } from '../eof/errors.js'
 import { EOFBYTES, EOFHASH, isEOF } from '../eof/util.js'
 import { ERROR } from '../exceptions.js'
+import { copyMemoryRegion, simulateMemoryPt } from '../tokamak/pointers/index.js'
 import { DELEGATION_7702_FLAG } from '../types.js'
 
 import {
@@ -614,12 +615,12 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(value)
 
       // For Synthesizer //
-      const dataPt = {
+      const dataPt: DataPt = {
         source: 'callvalue',
-        sourceOffset: 0,
-        actualSize: 32,
+        sourceIndex: 0,
+        sourceSize: 32,
         value,
-        valuestr: value.toString(16),
+        valueHex: value.toString(16),
       }
       runState.stackPt.push(dataPt)
     },
@@ -689,10 +690,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For Synthesizer //
       runState.stackPt.push({
         source: 'CALLDATASIZE',
-        sourceOffset: 0,
-        actualSize: 1,
+        sourceIndex: 0,
+        sourceSize: 1,
         value: BigInt(r),
-        valuestr: r.toString(16),
+        valueHex: r.toString(16),
       })
     },
   ],
@@ -770,8 +771,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       // For Synthesizer //
-      /*eslint-disable*/
-      const [destOffsetPt, offsetPt, sizePt] = runState.stackPt.popN(3)
+      runState.stackPt.popN(3)
     },
   ],
   // 0x3b: EXTCODESIZE
@@ -1045,7 +1045,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // For Synthesizer //
       const loadSize = 32
       const offsetPt = runState.stackPt.pop()
-      if (pos != offsetPt.value) {
+      if (pos !== offsetPt.value) {
         throw new Error(`Synthesizer: MLOAD: Input data mismatch`)
       }
       const offsetNum = Number(offsetPt.value)
@@ -1848,13 +1848,13 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [__currentGasLimit, _toAddr, _value, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(7)
       if (
-        __currentGasLimit.value != _currentGasLimit ||
-        _toAddr.value != toAddr ||
-        _value.value != value ||
-        _inOffset.value != inOffset ||
-        _inLength.value != inLength ||
-        _outOffset.value != outOffset ||
-        _outLength.value != outLength
+        __currentGasLimit.value !== _currentGasLimit ||
+        _toAddr.value !== toAddr ||
+        _value.value !== value ||
+        _inOffset.value !== inOffset ||
+        _inLength.value !== inLength ||
+        _outOffset.value !== outOffset ||
+        _outLength.value !== outLength
       ) {
         throw new Error(`Synthesizer: CALL: Input data mismatch`)
       }
@@ -1907,13 +1907,13 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [__currentGasLimit, _toAddr, _value, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(7)
       if (
-        __currentGasLimit.value != _currentGasLimit ||
-        _toAddr.value != toAddr ||
-        _value.value != value ||
-        _inOffset.value != inOffset ||
-        _inLength.value != inLength ||
-        _outOffset.value != outOffset ||
-        _outLength.value != outLength
+        __currentGasLimit.value !== _currentGasLimit ||
+        _toAddr.value !== toAddr ||
+        _value.value !== value ||
+        _inOffset.value !== inOffset ||
+        _inLength.value !== inLength ||
+        _outOffset.value !== outOffset ||
+        _outLength.value !== outLength
       ) {
         throw new Error(`Synthesizer: CALLCODE: Input data mismatch`)
       }
@@ -1961,12 +1961,12 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [__currentGasLimit, _toAddr, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(6)
       if (
-        __currentGasLimit.value != _currentGasLimit ||
-        _toAddr.value != toAddr ||
-        _inOffset.value != inOffset ||
-        _inLength.value != inLength ||
-        _outOffset.value != outOffset ||
-        _outLength.value != outLength
+        __currentGasLimit.value !== _currentGasLimit ||
+        _toAddr.value !== toAddr ||
+        _inOffset.value !== inOffset ||
+        _inLength.value !== inLength ||
+        _outOffset.value !== outOffset ||
+        _outLength.value !== outLength
       ) {
         throw new Error(`Synthesizer: DELEGATECALL: Input data mismatch`)
       }
@@ -2100,12 +2100,12 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [__currentGasLimit, _toAddr, _inOffset, _inLength, _outOffset, _outLength] =
         runState.stackPt.popN(6)
       if (
-        __currentGasLimit.value != _currentGasLimit ||
-        _toAddr.value != toAddr ||
-        _inOffset.value != inOffset ||
-        _inLength.value != inLength ||
-        _outOffset.value != outOffset ||
-        _outLength.value != outLength
+        __currentGasLimit.value !== _currentGasLimit ||
+        _toAddr.value !== toAddr ||
+        _inOffset.value !== inOffset ||
+        _inLength.value !== inLength ||
+        _outOffset.value !== outOffset ||
+        _outLength.value !== outLength
       ) {
         throw new Error(`Synthesizer: STATICCALL: Input data mismatch`)
       }
@@ -2179,7 +2179,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer
       const [_offset, _length] = runState.stackPt.popN(2)
-      if (_offset.value != offset || _length.value != length) {
+      if (_offset.value !== offset || _length.value !== length) {
         throw new Error(`Synthesizer: RETURN: Input data mismatch`)
       }
       const returnMemoryPts = copyMemoryRegion(runState, offset, length)

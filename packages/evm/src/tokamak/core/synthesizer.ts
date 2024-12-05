@@ -1,4 +1,4 @@
-import { BIGINT_0, BIGINT_1 } from '@ethereumjs/util'
+import { BIGINT_1 } from '@ethereumjs/util'
 
 import {
   DEFAULT_SOURCE_SIZE,
