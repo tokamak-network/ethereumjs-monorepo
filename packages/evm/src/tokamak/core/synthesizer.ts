@@ -1,13 +1,16 @@
-import { BIGINT_1 } from '@ethereumjs/util'
+import { BIGINT_1, bytesToBigInt } from '@ethereumjs/util'
 
 import {
   DEFAULT_SOURCE_SIZE,
-  INITIAL_PLACEMENT,
   INITIAL_PLACEMENT_INDEX,
+  KECCAK_PLACEMENT,
+  KECCAK_PLACEMENT_INDEX,
+  LOAD_PLACEMENT,
+  LOAD_PLACEMENT_INDEX,
   subcircuits,
 } from '../constant/index.js'
 import { type ArithmeticOperator, OPERATION_MAPPING } from '../operations/index.js'
-import { DataPointFactory } from '../pointers/index.js'
+import { DataPointFactory, simulateMemoryPt } from '../pointers/index.js'
 import { addPlacement } from '../utils/utils.js'
 import {
   InvalidInputCountError,
@@ -17,16 +20,215 @@ import {
 
 import type { DataAliasInfoEntry, DataAliasInfos } from '../pointers/index.js'
 import type { Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
-/**
- * @TODO
- *
- * 1. loadSubcircuit을 분할
- *    -> 1-1. public load
- *      -> envirmental information, 최종 출력, auxin 데이터
- *      ->
- *    -> 1-2. private load
- *      -> 바이트 코드 데이터
- */
+import { RunState } from '../../interpreter.js'
+import { EOFBYTES, isEOF } from '../../eof/util.js'
+import { createAddressFromStackBigInt, getDataSlice } from '../../opcodes/util.js'
+
+export const synthesizerArith = (op: ArithmeticOperator, ins: bigint[], out: bigint, runState: RunState): void => {
+  const inPts = runState.stackPt.popN(runState.synthesizer.subcircuitInfoByName.get(op)!.NInWires)
+  if ( inPts.length !== ins.length) {
+    throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+  }
+  for (let i=0; i < ins.length; i++ ){
+    if (inPts[i].value !== ins[i] ){
+      throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+    }
+  }
+  let outPts: DataPt[]
+  switch(op){
+    case 'DecToBit':
+      throw new Error(`Synthesizer: ${op}: Cannot be called by "synthesizerArith"`)
+    case 'EXP':
+      outPts = [runState.synthesizer.placeEXP(inPts)]
+      break
+    case 'KECCAK256':
+      const offsetNum = Number(ins[0])
+      const lengthNum = Number(ins[1])
+      const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, lengthNum)
+      const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
+      const data = runState.memory.read(offsetNum, lengthNum)
+      if ( bytesToBigInt(data) !== mutDataPt.value ) {
+        throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
+      }
+      outPts = [runState.synthesizer.loadKeccak(mutDataPt, out)]
+      break
+    default:
+      outPts = runState.synthesizer.placeArith(op, inPts)
+      break
+  }
+  if ( outPts.length !== 1 || outPts[0].value !== out) {
+    throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+  }
+  runState.stackPt.push(outPts[0])
+}
+
+export const synthesizerBlkInf = (op: string, runState: RunState, target?: bigint): void => {
+  let dataPt: DataPt
+  switch (op){
+    case 'BLOCKHASH':
+    case 'BLOBHASH':
+      // These opcodes have one input and one output
+      if ( target === undefined ){
+        throw new Error(`Synthesizer: ${op}: Must have an input block number`)
+      }
+      if ( target !== runState.stackPt.pop().value ){
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+      }
+      dataPt = runState.synthesizer.loadBlkInf(
+        target,
+        op,
+        runState.stack.peek(1)[0],
+      )
+      break
+    case 'COINBASE':
+    case 'TIMESTAMP':
+    case 'NUMBER':
+    case 'DIFFICULTY':
+    case 'GASLIMIT':
+    case 'CHAINID':
+    case 'SELFBALANCE':
+    case 'BASEFEE':
+    case 'BLOBBASEFEE':
+      // These opcodes have no input and one output
+      dataPt = runState.synthesizer.loadBlkInf(
+        runState.env.block.header.number,
+        op,
+        runState.stack.peek(1)[0],
+      )
+      break
+    default:
+      throw new Error(`Synthesizer: Dealing with invalid block information instruction`)
+  }
+  runState.stackPt.push(dataPt)
+  if ( runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0] ) {
+    throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+  }
+}
+
+export async function prepareEXTCodePt(runState: RunState, target: bigint, _offset?: bigint, _size?: bigint): Promise<DataPt> {
+  const address = createAddressFromStackBigInt(target)
+  let code = await runState.stateManager.getCode(address)
+  let codeType = 'EXTCode'
+  if (isEOF(code)) {
+    // In legacy code, the target code is treated as to be "EOFBYTES" code
+    code = EOFBYTES
+    codeType = 'EXTCode(EOF)'
+  }
+  const codeOffset = _offset ?? 0n
+  const dataLength = _size ?? BigInt(code.byteLength)
+  const data = getDataSlice(code, codeOffset, dataLength)
+  const dataBigint = bytesToBigInt(data)
+  const codeOffsetNum = Number(codeOffset)
+  const dataPt = runState.synthesizer.loadEnvInf(
+    address.toString(),
+    codeType,
+    dataBigint,
+    codeOffsetNum,
+    Number(dataLength)
+  )
+  return dataPt
+}
+
+export async function synthesizerEnvInf(op: string, runState: RunState, target?: bigint, offset?: bigint): Promise<void> {
+  // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functionst.ts에서 직접 처리 합니다.
+  let dataPt: DataPt
+  switch (op){
+    case 'CALLDATALOAD':
+      // These opcodes have one input and one output
+      if ( offset === undefined ){
+        throw new Error(`Synthesizer: ${op}: Must have an input offset`)
+      }
+      if ( offset !== runState.stackPt.pop().value ){
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+      }
+      const i = Number(offset)
+      const calldataMemoryPts = runState.interpreter._env.callMemoryPts
+      if (calldataMemoryPts.length > 0) {
+        // Case: The calldata is originated from the parent context
+        // Simulate a MemoryPt for the calldata
+        const calldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
+        // View the memory and get the alias info
+        const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32)
+        if (dataAliasInfos.length > 0) {
+          // Case: Data exists in the scope of view
+          dataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
+        } else {
+          // Case: Data does not exist in the scope of view => 0 is loaded
+          dataPt = runState.synthesizer.loadEnvInf(
+            runState.env.address.toString(),
+            'Calldata(Empty)',
+            runState.stack.peek(1)[0],
+            i,
+          )
+        }
+      } else {
+        // Case: The calldata is originated from the user (transciton) input
+        dataPt = runState.synthesizer.loadEnvInf(
+          runState.env.address.toString(),
+          'Calldata(User)',
+          runState.stack.peek(1)[0],
+          i
+        )
+      }
+      runState.stackPt.push(dataPt)
+      if (runState.stack.peek(1)[0] !== runState.stackPt.peek(1)[0].value) {
+        throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+      }
+
+      break
+    case 'BALANCE':
+    case 'EXTCODESIZE':
+      // These opcodes have one input and one output
+      if ( target === undefined ){
+        throw new Error(`Synthesizer: ${op}: Must have an input address`)
+      }
+      if ( target !== runState.stackPt.pop().value ){
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+      }
+      dataPt = runState.synthesizer.loadEnvInf(
+        target.toString(16),
+        op,
+        runState.stack.peek(1)[0],
+      )
+      break
+    case 'EXTCODEHASH':
+      // These opcode has one input and one output
+      if ( target === undefined ){
+        throw new Error(`Synthesizer: ${op}: Must have an input address`)
+      }
+      if ( target !== runState.stackPt.pop().value ){
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+      }
+      const codePt = await prepareEXTCodePt(runState, target)
+      dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
+      break
+    case 'ADDRESS':
+    case 'ORIGIN':
+    case 'CALLER':
+    case 'CALLVALUE':
+    case 'CALLDATASIZE':
+    case 'CODESIZE':
+    case 'GASPRICE':
+      // These opcodes have no input and one output
+      dataPt = runState.synthesizer.loadEnvInf(
+        runState.env.address.toString(),
+        op,
+        runState.stack.peek(1)[0],
+      )
+      break
+    default:
+      throw new Error(`Synthesizer: Dealing with invalid environment information instruction`)
+  }
+  runState.stackPt.push(dataPt)
+  if ( runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0] ) {
+    throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+  }
+}
+
+// 기본값(2)과 다른 입력 개수를 가진 연산들만 정의
+type SubcircuitInfoByNameEntry = {id: number, NWires: number, inWireIndex: number, NInWires: number, outWireIndex: number, NOutWires: number}
+type SubcircuitInfoByName =  Map<string, SubcircuitInfoByNameEntry>
+
 
 /**
  * Synthesizer 클래스는 서브서킷과 관련된 데이터를 관리합니다.
@@ -40,17 +242,34 @@ export class Synthesizer {
   public placements: Placements
   public auxin: Auxin
   public envInf: Map<string, {value: bigint, wireIndex: number}>
+  public blkInf: Map<string, {value: bigint, wireIndex: number}>
   protected placementIndex: number
   private subcircuitNames
+  readonly subcircuitInfoByName: SubcircuitInfoByName
 
   constructor() {
     this.placements = new Map()
-    this.placements.set(0, INITIAL_PLACEMENT)
+    this.placements.set(LOAD_PLACEMENT_INDEX, LOAD_PLACEMENT)
+    this.placements.set(KECCAK_PLACEMENT_INDEX, KECCAK_PLACEMENT)   
 
     this.auxin = new Map()
     this.envInf = new Map()
+    this.blkInf = new Map()
     this.placementIndex = INITIAL_PLACEMENT_INDEX
     this.subcircuitNames = subcircuits.map((circuit) => circuit.name)
+    this.subcircuitInfoByName = new Map()
+    for (const subcircuit of subcircuits) {
+      const entryObject: SubcircuitInfoByNameEntry = {
+        id: subcircuit.id,
+        NWires: subcircuit.Nwires,
+        NInWires: subcircuit.In_idx[1],
+        NOutWires: subcircuit.Out_idx[1],
+        inWireIndex: subcircuit.In_idx[0],
+        outWireIndex: subcircuit.Out_idx[0],
+      }
+      this.subcircuitInfoByName.set(subcircuit.name, entryObject)
+    }
+    
   }
 
   /**
@@ -61,10 +280,10 @@ export class Synthesizer {
    */
   private _addToLoadPlacement(pointerIn: DataPt): DataPt {
     // 기존 output list의 길이를 새로운 출력의 인덱스로 사용
-    if ( this.placements.get(0)!.inPts.length != this.placements.get(0)!.outPts.length ){
+    if ( this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.length != this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length ){
       throw new Error(`Mismatches in the Load wires`)
     }
-    const outWireIndex = this.placements.get(0)!.outPts.length
+    const outWireIndex = this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length
 
     // 출력 데이터 포인트 생성
     const outPtRaw: CreateDataPointParams = {
@@ -76,10 +295,10 @@ export class Synthesizer {
     const pointerOut = DataPointFactory.create(outPtRaw)
 
     // LOAD 서브서킷에 입출력 추가
-    this.placements.get(0)!.inPts.push(pointerIn)
-    this.placements.get(0)!.outPts.push(pointerOut)
+    this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.push(pointerIn)
+    this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.push(pointerOut)
 
-    return this.placements.get(0)!.outPts[outWireIndex]
+    return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[outWireIndex]
   }
 
   /**
@@ -110,7 +329,7 @@ export class Synthesizer {
 
   public loadAuxin(value: bigint): DataPt {
     if ( this.auxin.has(value) ) {
-      return this.placements.get(0)!.outPts[this.auxin.get(value)!]
+      return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.auxin.get(value)!]
     }
     const inPtRaw: CreateDataPointParams = {
       source: 'auxin',
@@ -128,11 +347,12 @@ export class Synthesizer {
     const whereItFrom = {
       source: `code: ${codeAddress}`,
       type: type,
-      offset: offset
+      offset: offset,
+      length: size,
     }
     const key = JSON.stringify(whereItFrom)
     if ( this.envInf.has(key) ) {
-      return this.placements.get(0)!.outPts[this.envInf.get(key)!.wireIndex]
+      return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.envInf.get(key)!.wireIndex]
     }
     const sourceSize = size ?? DEFAULT_SOURCE_SIZE
     const inPtRaw: CreateDataPointParams = {
@@ -148,6 +368,54 @@ export class Synthesizer {
     }
     this.envInf.set(key, envInfEntry)
     return outPt
+  }
+
+  public loadBlkInf(blkNumber: bigint, type: string, value: bigint): DataPt {
+    const whereItFrom = {
+      source: `block number: ${Number(blkNumber)}`,
+      type: type,
+    }
+    const key = JSON.stringify(whereItFrom)
+    if ( this.blkInf.has(key) ) {
+      return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.blkInf.get(key)!.wireIndex]
+    }
+    const inPtRaw: CreateDataPointParams = {
+      ...whereItFrom,
+      value: value,
+      sourceSize: DEFAULT_SOURCE_SIZE
+    }
+    const pointerIn = DataPointFactory.create(inPtRaw)
+    const outPt = this._addToLoadPlacement(pointerIn)
+    const blkInfEntry = {
+      value: value,
+      wireIndex: outPt.wireIndex!
+    }
+    this.blkInf.set(key, blkInfEntry)
+    return outPt
+  }
+
+  public loadKeccak( inPt: DataPt, outValue: bigint ): DataPt {
+    // 연산 실행
+    const value = inPt.value
+    const _outValue = this.executeOperation('KECCAK256', [value])
+    if ( _outValue !== outValue ){
+      throw new Error(`Synthesizer: loadKeccak: The Keccak hash may be customized`)
+    }
+    const outWireIndex = this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts.length
+    // 출력 데이터 포인트 생성
+    const outPtRaw: CreateDataPointParams = {
+      source: KECCAK_PLACEMENT_INDEX,
+      wireIndex: outWireIndex,
+      value: outValue,
+      sourceSize: DEFAULT_SOURCE_SIZE,
+    }
+    const outPt = DataPointFactory.create(outPtRaw)
+
+    // keccakBuffer 서브서킷에 입출력 추가
+    this.placements.get(KECCAK_PLACEMENT_INDEX)!.inPts.push(inPt)
+    this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts.push(outPt)
+
+    return this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts[outWireIndex]
   }
 
   /**
@@ -245,7 +513,6 @@ export class Synthesizer {
   }
 
   /**
-   * @deprecated
    * RETURN은 더이상 배치를 사용하지 않습니다.
    *
    * RETURN은 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 지정된 메모리 위치에서 데이터를 반환합니다.
@@ -302,8 +569,6 @@ export class Synthesizer {
   // }
 
   //# TODO: newDataPt size 변수 검증 필요
-  
-  // 기본값(2)과 다른 입력 개수를 가진 연산들만 정의
   private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
     ADDMOD: 3,
     MULMOD: 3,
@@ -312,7 +577,6 @@ export class Synthesizer {
     DecToBit: 1,
     SubEXP: 3,
   } as const
-
   private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
     // 기본값은 2, 예외적인 경우만 REQUIRED_INPUTS에서 확인
     const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2

@@ -2,7 +2,7 @@ export const subcircuits = [
   {
     id: 0,
     opcode: 'fff',
-    name: 'LOAD',
+    name: 'Load',
     Nwires: 33,
     Out_idx: [1, 16],
     In_idx: [17, 16],
@@ -261,5 +261,13 @@ export const subcircuits = [
     Nwires: 0,
     Out_idx: [1, 2],
     In_idx: [3, 3],
+  },
+  {
+    id: 32,
+    opcode: '',
+    name: 'KeccakBuffer',
+    Nwires: 0,
+    Out_idx: [1, 16],
+    In_idx: [17, 16],
   },
 ]

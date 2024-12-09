@@ -42,7 +42,6 @@ export type SubcircuitId = {
  * @property {number} offset? - The offset at which the data is read, when the source is string and the type either 'hardcoded' or 'CALLDATA'.
  * @property {number} sourceSize - 데이터의 실제 크기.
  * @property {bigint} value - 데이터 값.
- * @property {string} valuestr - 데이터 값을 16진수 문자열로 표현한 값.
  */
 export interface CreateDataPointParams {
   source: string | number

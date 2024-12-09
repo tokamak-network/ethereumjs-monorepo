@@ -51,8 +51,8 @@ import {
 
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
-import type { DataPt } from '../tokamak/types/index.js'
 import type { Common } from '@ethereumjs/common'
+import { prepareEXTCodePt, synthesizerArith, synthesizerBlkInf, synthesizerEnvInf } from '../tokamak/core/synthesizer.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -97,9 +97,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('ADD', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('ADD', [a, b], r, runState)
     },
   ],
   // 0x02: MUL
@@ -111,9 +109,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('MUL', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('MUL', [a, b], r, runState)
     },
   ],
   // 0x03: SUB
@@ -125,9 +121,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('SUB', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('SUB', [a, b], r, runState)
     },
   ],
   // 0x04: DIV
@@ -144,17 +138,13 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('DIV', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('DIV', [a, b], r, runState)
     },
   ],
   // 0x05: SDIV
   [
     0x05,
     function (runState) {
-      // console.log('***SDIV GO***')
-      // console.log('stack before: ', runState.stack)
       const [a, b] = runState.stack.popN(2)
       let r
       if (b === BIGINT_0) {
@@ -164,18 +154,8 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       runState.stack.push(r)
 
-      // console.log('stack after: ', runState.stack)
-
-      // // For Synthesizer //
-      // console.log('***SDIV GO***')
-      // console.log('stackPt before: ', runState.stackPt)
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('SDIV', inPts)
-      runState.stackPt.push(outPts[0])
-      // console.log('inPts : ', inPts)
-      // console.log('outPts : ', outPts)
-      // console.log('stackPt after: ', runState.stackPt)
-      // console.log('***SDIV END***')
+      // For Synthesizer //
+      synthesizerArith('SDIV', [a, b], r, runState)
     },
   ],
   // 0x06: MOD
@@ -192,9 +172,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('MOD', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('MOD', [a, b], r, runState)
     },
   ],
   // 0x07: SMOD
@@ -211,9 +189,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(toTwos(r))
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('SMOD', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('SMOD', [a, b], r, runState)
     },
   ],
   // 0x08: ADDMOD
@@ -230,9 +206,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(3)
-      const outPts = runState.synthesizer.placeArith('ADDMOD', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('ADDMOD', [a, b, c], r, runState)
     },
   ],
   // 0x09: MULMOD
@@ -249,9 +223,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(3)
-      const outPts = runState.synthesizer.placeArith('MULMOD', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('MULMOD', [a, b], r, runState)
     },
   ],
   // 0x0a: EXP
@@ -285,9 +257,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPt = runState.synthesizer.placeEXP(inPts)
-      runState.stackPt.push(outPt)
+      synthesizerArith('EXP', [base, exponent], r, runState)
     },
   ],
   // 0x0b: SIGNEXTEND
@@ -295,29 +265,22 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x0b,
     function (runState) {
       /* eslint-disable-next-line prefer-const */
-      let [k, val] = runState.stack.popN(2)
+      const [k, _val] = runState.stack.popN(2)
+      let val = _val
 
       if (k < BIGINT_31) {
         const signBit = k * BIGINT_8 + BIGINT_7
         const mask = (BIGINT_1 << signBit) - BIGINT_1
-        if ((val >> signBit) & BIGINT_1) {
-          val = val | BigInt.asUintN(256, ~mask)
+        if ((_val >> signBit) & BIGINT_1) {
+          val = _val | BigInt.asUintN(256, ~mask)
         } else {
-          val = val & mask
+          val = _val & mask
         }
       }
       runState.stack.push(val)
 
       // For Synthesizer //
-      try {
-        const inPts = runState.stackPt.popN(2)
-        const outPts = runState.synthesizer.placeArith('SIGNEXTEND', inPts)
-        runState.stackPt.push(outPts[0])
-      } catch (error) {
-        console.log('Error in SIGNEXTEND synthesizer:', error)
-        console.log('stack', runState.stack)
-        console.log('stackPt', runState.stackPt)
-      }
+      synthesizerArith('SIGNEXTEND', [k, _val], val, runState)
     },
   ],
   // 0x10 range - bit ops
@@ -330,9 +293,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('LT', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('LT', [a, b], r, runState)
     },
   ],
   // 0x11: GT
@@ -344,9 +305,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('GT', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('GT', [a, b], r, runState)
     },
   ],
   // 0x12: SLT
@@ -358,16 +317,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      // try {
-      const inPts = runState.stackPt.popN(2)
-
-      const outPts = runState.synthesizer.placeArith('SLT', inPts)
-      runState.stackPt.push(outPts[0])
-
-      // } catch (error) {
-      //   console.error('Error in SLT synthesizer:', error)
-      //   console.log('stackPt', runState.stackPt)
-      // }
+      synthesizerArith('SLT', [a, b], r, runState)
     },
   ],
   // 0x13: SGT
@@ -379,9 +329,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('SGT', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('SGT', [a, b], r, runState)
     },
   ],
   // 0x14: EQ
@@ -393,9 +341,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('EQ', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('EQ', [a, b], r, runState)
     },
   ],
   // 0x15: ISZERO
@@ -407,9 +353,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(1)
-      const outPts = runState.synthesizer.placeArith('ISZERO', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('ISZERO', [a], r, runState)
     },
   ],
   // 0x16: AND
@@ -421,9 +365,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('AND', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('AND', [a, b], r, runState)
     },
   ],
   // 0x17: OR
@@ -435,9 +377,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('OR', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('OR', [a, b], r, runState)
     },
   ],
   // 0x18: XOR
@@ -449,9 +389,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('XOR', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('XOR', [a, b], r, runState)
     },
   ],
   // 0x19: NOT
@@ -463,9 +401,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(1)
-      const outPts = runState.synthesizer.placeArith('NOT', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('NOT', [a], r, runState)
     },
   ],
   // 0x1a: BYTE
@@ -482,9 +418,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('BYTE', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('BYTE', [pos, word], r, runState)
     },
   ],
   // 0x1b: SHL
@@ -501,9 +435,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('SHL', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('SHL', [a, b], r, runState)
     },
   ],
   // 0x1c: SHR
@@ -520,9 +452,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('SHR', inPts)
-      runState.stackPt.push(outPts[0])
+      synthesizerArith('SHR', [a, b], r, runState)
     },
   ],
   // 0x1d: SAR
@@ -554,10 +484,8 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       runState.stack.push(r)
 
-      // // For Synthesizer //
-      const inPts = runState.stackPt.popN(2)
-      const outPts = runState.synthesizer.placeArith('SAR', inPts)
-      runState.stackPt.push(outPts[0])
+      // For Synthesizer //
+      synthesizerArith('SAR', [a, b], r, runState)
     },
   ],
   // 0x20 range - crypto
@@ -572,6 +500,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       const r = BigInt(bytesToHex((common.customCrypto.keccak256 ?? keccak256)(data)))
       runState.stack.push(r)
+
+      // For synthesizer //
+      synthesizerArith('KECCAK256', [offset, length], r, runState)
     },
   ],
   // 0x30 range - closure state
@@ -583,12 +514,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(address)
 
       // For Synthesizer //
-      const dataPt = runState.synthesizer.loadEnvInf(
-        runState.env.address.toString(),
-        'ADDRESS',
-        address,
-      )
-      runState.stackPt.push(dataPt)
+      synthesizerEnvInf('ADDRESS', runState)
     },
   ],
   // 0x31: BALANCE
@@ -600,67 +526,38 @@ export const handlers: Map<number, OpHandler> = new Map([
       const balance = await runState.interpreter.getExternalBalance(address)
       runState.stack.push(balance)
 
-      const _addressBigInt = runState.stackPt.pop().value
-      if (_addressBigInt !== addressBigInt) {
-        throw new Error(`Synthesizer: BALANCE: Input data mismatch`)
-      }
-
       // For Synthesizer //
-      const dataPt = runState.synthesizer.loadEnvInf(
-        address.toString(),
-        'BALANCE',
-        balance,
-      )
-      runState.stackPt.push(dataPt)
-
+      synthesizerEnvInf('BALANCE', runState, addressBigInt)
     },
   ],
   // 0x32: ORIGIN
   [
     0x32,
     function (runState) {
-      const value = runState.interpreter.getTxOrigin() 
-      runState.stack.push(value)
+      runState.stack.push(runState.interpreter.getTxOrigin() )
 
       // For Synthesizer //
-      const dataPt = runState.synthesizer.loadEnvInf(
-        runState.env.address.toString(),
-        'ORIGIN',
-        value,
-      )
-      runState.stackPt.push(dataPt)
+      synthesizerEnvInf('ORIGIN', runState)
     },
   ],
   // 0x33: CALLER
   [
     0x33,
     function (runState) {
-      const value = runState.interpreter.getCaller()
-      runState.stack.push(value)
+      runState.stack.push(runState.interpreter.getCaller())
 
       // For Synthesizer //
-      const dataPt = runState.synthesizer.loadEnvInf(
-        runState.env.address.toString(),
-        'CALLER',
-        value,
-      )
-      runState.stackPt.push(dataPt)
+      synthesizerEnvInf('ADDRESS', runState)
     },
   ],
   // 0x34: CALLVALUE
   [
     0x34,
     function (runState) {
-      const value = runState.interpreter.getCallValue()
-      runState.stack.push(value)
+      runState.stack.push(runState.interpreter.getCallValue())
 
       // For Synthesizer //
-      const dataPt = runState.synthesizer.loadEnvInf(
-        runState.env.address.toString(),
-        'CALLVALUE',
-        value,
-      )
-      runState.stackPt.push(dataPt)
+      synthesizerEnvInf('CALLVALUE', runState)
     },
   ],
   // 0x35: CALLDATALOAD
@@ -670,6 +567,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       const pos = runState.stack.pop()
       if (pos > runState.interpreter.getCallDataSize()) {
         runState.stack.push(BIGINT_0)
+
+        // For synthesizer //
+        synthesizerEnvInf('CALLDATALOAD', runState, undefined, pos)
         return
       }
 
@@ -682,56 +582,18 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       runState.stack.push(r)
 
-      // For synthesizer
-      const _pos = runState.stackPt.pop().value
-      if (_pos !== pos) {
-        throw new Error(`Synthesizer: CALLDATALOAD: Input data mismatch`)
-      }
-
-      const calldataMemoryPts = runState.interpreter._env.callMemoryPts
-      let dataPtToLoad: DataPt
-      if (calldataMemoryPts.length > 0) {
-        // Case: The calldata is originated from the parent context
-
-        // Simulate a MemoryPt for the calldata
-        const calldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
-        // View the memory and get the alias info
-        // const calldataSize = runState.interpreter.getCallDataSize()
-        const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32)
-
-        if (dataAliasInfos.length > 0) {
-          // Case: The data to load is originated from the parent context
-
-          dataPtToLoad = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
-        } else {
-          // Case: The data to load is not originated from the parent context => 0 is loaded from 'auxin'
-          dataPtToLoad = runState.synthesizer.loadAuxin(BIGINT_0)
-        }
-      } else {
-        // Case: The calldata is originated from Environmental Information
-        dataPtToLoad = runState.synthesizer.loadEnvInf(runState.env.address.toString(), 'calldata', r, i)
-      }
-      runState.stackPt.push(dataPtToLoad)
-
-      if (runState.stack.peek(1)[0] !== runState.stackPt.peek(1)[0].value) {
-        throw new Error(`Synthesizer: CALLDATALOAD: Output data mismatch`)
-      }
+      // For synthesizer //
+      synthesizerEnvInf('CALLDATALOAD', runState, undefined, pos)
     },
   ],
   // 0x36: CALLDATASIZE
   [
     0x36,
     function (runState) {
-      const value = runState.interpreter.getCallDataSize()
-      runState.stack.push(value)
+      runState.stack.push(runState.interpreter.getCallDataSize())
 
       // For Synthesizer //
-      const dataPt = runState.synthesizer.loadEnvInf(
-        runState.env.address.toString(),
-        'CALLDATASIZE',
-        value,
-      )
-      runState.stackPt.push(dataPt)
+      synthesizerEnvInf('CALLDATASIZE', runState)
     },
   ],
   // 0x37: CALLDATACOPY
@@ -744,16 +606,18 @@ export const handlers: Map<number, OpHandler> = new Map([
         const memOffsetNum = Number(memOffset)
         const dataLengthNum = Number(dataLength)
         runState.memory.write(memOffsetNum, dataLengthNum, data)
+      }
 
-        // For synthesizer
-        const [_memOffset, _dataOffset, _dataLength] = runState.stackPt.popN(3)
-        if (
-          _memOffset.value !== memOffset ||
-          _dataOffset.value !== dataOffset ||
-          _dataLength.value !== dataLength
-        ) {
-          throw new Error(`Synthesizer: CALLDATACOPY: Input data mismatch`)
-        }
+      // For synthesizer
+      const [_memOffset, _dataOffset, _dataLength] = runState.stackPt.popN(3)
+      if (
+        _memOffset.value !== memOffset ||
+        _dataOffset.value !== dataOffset ||
+        _dataLength.value !== dataLength
+      ) {
+        throw new Error(`Synthesizer: CALLDATACOPY: Input data mismatch`)
+      }
+      if (dataLength !== BIGINT_0) {
         const dataOffsetNum = Number(dataOffset)
         const calldataMemoryPts = runState.interpreter._env.callMemoryPts
         let memoryPtsToCopy: MemoryPts = []
@@ -762,15 +626,16 @@ export const handlers: Map<number, OpHandler> = new Map([
           memoryPtsToCopy = copyMemoryRegion(runState, dataOffset, dataLength, calldataMemoryPts)
         } else {
           // Case: The calldata is originated from Environmental Information
+          const data = getDataSlice(runState.interpreter.getCallData(), dataOffset, dataLength)
           const entryToCopy: MemoryPtEntry = {
             memOffset: 0,
-            containerSize: dataLengthNum,
+            containerSize: Number(dataLength),
             dataPt: runState.synthesizer.loadEnvInf(
               runState.env.address.toString(),
-              'calldata',
+              'Calldata',
               bytesToBigInt(data),
               dataOffsetNum,
-              dataLengthNum,
+              Number(dataLength),
             ),
           }
           memoryPtsToCopy.push(entryToCopy)
@@ -778,7 +643,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         for (const entry of memoryPtsToCopy) {
           // the lower index, the older data
-          runState.memoryPt.write(memOffsetNum + entry.memOffset, entry.containerSize, entry.dataPt)
+          runState.memoryPt.write(Number(memOffset) + entry.memOffset, entry.containerSize, entry.dataPt)
         }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
@@ -793,6 +658,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x38,
     function (runState) {
       runState.stack.push(runState.interpreter.getCodeSize())
+
+      // For Synthesizer //
+      synthesizerEnvInf('CODESIZE', runState)
     },
   ],
   // 0x39: CODECOPY
@@ -809,7 +677,31 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       // For Synthesizer //
-      runState.stackPt.popN(3)
+      const [memOffsetPt, codeOffsetPt, dataLengthPt] = runState.stackPt.popN(3)
+      if ( memOffsetPt.value !== memOffset ||
+        codeOffsetPt.value !== codeOffset ||
+        dataLengthPt.value !== dataLength ) {
+        throw new Error(`Synthesizer: CODECOPY: Input data mismatch`)
+      }
+        
+      if (dataLength !== BIGINT_0) { 
+        const data = getDataSlice(runState.interpreter.getCode(), codeOffset, dataLength)
+        const dataBigint = bytesToBigInt(data)
+        const codeOffsetNum = Number(codeOffset)
+        const dataPt = runState.synthesizer.loadEnvInf(
+          runState.env.address.toString(),
+          'Code',
+          dataBigint,
+          codeOffsetNum,
+          Number(dataLength)
+        )
+        runState.memoryPt.write(Number(memOffset), Number(dataLength), dataPt)
+      }
+      const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
+      const outData = runState.memory.read(Number(memOffset), Number(dataLength))
+      if (!equalsBytes(_outData, outData)) {
+        throw new Error(`Synthesizer: CODECOPY: Output data mismatch`)
+      }
     },
   ],
   // 0x3b: EXTCODESIZE
@@ -823,6 +715,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (isEOF(code)) {
         // In legacy code, the target code is treated as to be "EOFBYTES" code
         runState.stack.push(BigInt(EOFBYTES.length))
+
+        // For Synthesizer //
+        synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
         return
       } else if (common.isActivatedEIP(7702)) {
         code = await eip7702CodeCheck(runState, code)
@@ -831,6 +726,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       const size = BigInt(code.length)
 
       runState.stack.push(size)
+      
+      // For Synthesizer //
+      synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
     },
   ],
   // 0x3c: EXTCODECOPY
@@ -855,6 +753,24 @@ export const handlers: Map<number, OpHandler> = new Map([
         const lengthNum = Number(dataLength)
         runState.memory.write(memOffsetNum, lengthNum, data)
       }
+
+      // For Synthesizer //
+      const [addressPt, memOffsetPt, codeOffsetPt, dataLengthPt] = runState.stackPt.popN(4)
+      if ( addressPt.value !== addressBigInt ||
+        memOffsetPt.value !== memOffset ||
+        codeOffsetPt.value !== codeOffset ||
+        dataLengthPt.value !== dataLength ) {
+        throw new Error(`Synthesizer: EXTCODECOPY: Input data mismatch`)
+      }
+      if (dataLength !== BIGINT_0) {
+        const dataPt = await prepareEXTCodePt(runState, addressBigInt, codeOffset, dataLength)
+        runState.memoryPt.write(Number(memOffset), Number(dataLength), dataPt)
+      }
+      const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
+      const outData = runState.memory.read(Number(memOffset), Number(dataLength))
+      if (!equalsBytes(_outData, outData)) {
+        throw new Error(`Synthesizer: EXTCODECOPY: Output data mismatch`)
+      }
     },
   ],
   // 0x3f: EXTCODEHASH
@@ -870,6 +786,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         // In legacy code, the target code is treated as to be "EOFBYTES" code
         // Therefore, push the hash of EOFBYTES to the stack
         runState.stack.push(bytesToBigInt(EOFHASH))
+
+        // For Synthesizer //
+        synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
         return
       } else if (common.isActivatedEIP(7702)) {
         const possibleDelegatedAddress = getEIP7702DelegatedAddress(code)
@@ -877,13 +796,22 @@ export const handlers: Map<number, OpHandler> = new Map([
           const account = await runState.stateManager.getAccount(possibleDelegatedAddress)
           if (!account || account.isEmpty()) {
             runState.stack.push(BIGINT_0)
+
+            // For Synthesizer //
+            synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
             return
           }
 
           runState.stack.push(BigInt(bytesToHex(account.codeHash)))
+
+          // For Synthesizer //
+          synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
           return
         } else {
           runState.stack.push(bytesToBigInt(keccak256(code)))
+
+          // For Synthesizer //
+          synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
           return
         }
       }
@@ -891,10 +819,16 @@ export const handlers: Map<number, OpHandler> = new Map([
       const account = await runState.stateManager.getAccount(address)
       if (!account || account.isEmpty()) {
         runState.stack.push(BIGINT_0)
+
+        // For Synthesizer //
+        synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
         return
       }
-
+      
       runState.stack.push(BigInt(bytesToHex(account.codeHash)))
+
+      // For Synthesizer //
+      synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
     },
   ],
   // 0x3d: RETURNDATASIZE
@@ -927,6 +861,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x3a,
     function (runState) {
       runState.stack.push(runState.interpreter.getTxGasPrice())
+      
+      // For Synthesizer //
+      synthesizerEnvInf('GASPRICE', runState)
     },
   ],
   // '0x40' range - block operations
@@ -939,6 +876,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (common.isActivatedEIP(7709)) {
         if (number >= runState.interpreter.getBlockNumber()) {
           runState.stack.push(BIGINT_0)
+
+          // For Synthesizer //
+          synthesizerBlkInf('BLOCKHASH', runState, number)
           return
         }
 
@@ -947,6 +887,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         // historyServeWindow is much greater than 256
         if (diff > BIGINT_256 || diff <= BIGINT_0) {
           runState.stack.push(BIGINT_0)
+
+          // For Synthesizer //
+          synthesizerBlkInf('BLOCKHASH', runState, number)
           return
         }
 
@@ -974,6 +917,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         // block lookups must be within the past 256 blocks
         if (diff > BIGINT_256 || diff <= BIGINT_0) {
           runState.stack.push(BIGINT_0)
+
+          // For Synthesizer //
+          synthesizerBlkInf('BLOCKHASH', runState, number)
           return
         }
 
@@ -981,6 +927,8 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         runState.stack.push(bytesToBigInt(block.hash()))
       }
+      // For Synthesizer //
+      synthesizerBlkInf('BLOCKHASH', runState, number)
     },
   ],
   // 0x41: COINBASE
@@ -988,6 +936,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x41,
     function (runState) {
       runState.stack.push(runState.interpreter.getBlockCoinbase())
+
+      // For Synthesizer //
+      synthesizerBlkInf('COINBASE', runState)
     },
   ],
   // 0x42: TIMESTAMP
@@ -995,6 +946,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x42,
     function (runState) {
       runState.stack.push(runState.interpreter.getBlockTimestamp())
+
+      // For Synthesizer //
+      synthesizerBlkInf('TIMESTAMP', runState)
     },
   ],
   // 0x43: NUMBER
@@ -1002,6 +956,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x43,
     function (runState) {
       runState.stack.push(runState.interpreter.getBlockNumber())
+
+      // For Synthesizer //
+      synthesizerBlkInf('NUMBER', runState)
     },
   ],
   // 0x44: DIFFICULTY (EIP-4399: supplanted as PREVRANDAO)
@@ -1013,6 +970,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       } else {
         runState.stack.push(runState.interpreter.getBlockDifficulty())
       }
+
+      // For Synthesizer //
+      synthesizerBlkInf('DIFFICULTY', runState)
     },
   ],
   // 0x45: GASLIMIT
@@ -1020,6 +980,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x45,
     function (runState) {
       runState.stack.push(runState.interpreter.getBlockGasLimit())
+
+      // For Synthesizer //
+      synthesizerBlkInf('GASLIMIT', runState)
     },
   ],
   // 0x46: CHAINID
@@ -1027,6 +990,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x46,
     function (runState) {
       runState.stack.push(runState.interpreter.getChainId())
+
+      // For Synthesizer //
+      synthesizerBlkInf('CHAINID', runState)
     },
   ],
   // 0x47: SELFBALANCE
@@ -1034,6 +1000,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x47,
     function (runState) {
       runState.stack.push(runState.interpreter.getSelfBalance())
+
+      // For Synthesizer //
+      synthesizerBlkInf('SELFBALANCE', runState)
     },
   ],
   // 0x48: BASEFEE
@@ -1041,6 +1010,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x48,
     function (runState) {
       runState.stack.push(runState.interpreter.getBlockBaseFee())
+
+      // For Synthesizer //
+      synthesizerBlkInf('BASEFEE', runState)
     },
   ],
   // 0x49: BLOBHASH
@@ -1053,6 +1025,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       } else {
         runState.stack.push(BIGINT_0)
       }
+
+      // For Synthesizer //
+      synthesizerBlkInf('BLOBHASH', runState, index)
     },
   ],
   // 0x4a: BLOBBASEFEE
@@ -1060,6 +1035,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x4a,
     function (runState) {
       runState.stack.push(runState.interpreter.getBlobBaseFee())
+
+      // For Synthesizer //
+      synthesizerBlkInf('BLOBBASEFEE', runState)
     },
   ],
   // 0x50 range - 'storage' and execution
