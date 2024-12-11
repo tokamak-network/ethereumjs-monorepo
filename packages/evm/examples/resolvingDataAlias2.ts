@@ -29,7 +29,33 @@ const main = async () => {
   const evm = await createEVM()
 
   const res = await evm.runCode({
-    code: hexToBytes('0x63c0cac01a60225263b01dface601e52611eaf601c52602051'),
+    code: hexToBytes(
+      '0x' +
+        '63' +
+        'c0cac01a' + // PUSH4 (0x63) + 4바이트 값 push
+        '60' +
+        '22' + // PUSH1 (0x60) + 1바이트 값 push
+        '52' + // MSTORE (0x52)
+        '63' +
+        'b01dface' + // PUSH4 (0x63) + 4바이트 값 push
+        '60' +
+        '1e' + // PUSH1 (0x60) + 1바이트 값 push
+        '52' + // MSTORE (0x52)
+        '61' +
+        '1eaf' + // PUSH2 (0x61) + 2바이트 값 push
+        '60' +
+        '1c' + // PUSH1 (0x60) + 1바이트 값 push
+        '52' + // MSTORE (0x52)
+        '62' +
+        'ffffff' +
+        '60' +
+        '20' +
+        '52' +
+        '60' +
+        '20' + // PUSH1 (0x60) + 1바이트 값 push
+        '51' + // MLOAD (0x51),
+        '00',
+    ),
   })
 
   const stringPlacements = mapToStr(res.runState!.synthesizer.placements)

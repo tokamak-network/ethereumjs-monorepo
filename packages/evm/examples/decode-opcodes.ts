@@ -6,10 +6,10 @@ import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
 import { getOpcodesForHF, paramsEVM } from '@ethereumjs/evm'
 import { bytesToHex, hexToBytes } from '@ethereumjs/util'
 
-const common = new Common({ chain: Mainnet, hardfork: Hardfork.Istanbul, params: paramsEVM })
+const common = new Common({ chain: Mainnet, hardfork: Hardfork.Cancun, params: paramsEVM })
 const opcodes = getOpcodesForHF(common).opcodes
 
-const data = '0x6107608061000e6000396000f30060003560e060020a90048063141961bc1461006e57806319ac74bd'
+const data = '0x600160005260026020526001601F60205e602051'
 
 nameOpCodes(hexToBytes(data))
 

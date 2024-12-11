@@ -1,5 +1,5 @@
-import { BIGINT_1, bytesToBigInt } from '@ethereumjs/util'
-
+import { BIGINT_0, BIGINT_1, bigIntToBytes, bytesToBigInt, bytesToHex, setLengthLeft } from '@ethereumjs/util'
+import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import {
   DEFAULT_SOURCE_SIZE,
   INITIAL_PLACEMENT_INDEX,
@@ -7,6 +7,8 @@ import {
   KECCAK_PLACEMENT_INDEX,
   LOAD_PLACEMENT,
   LOAD_PLACEMENT_INDEX,
+  RETURN_PLACEMENT,
+  RETURN_PLACEMENT_INDEX,
   subcircuits,
 } from '../constant/index.js'
 import { type ArithmeticOperator, OPERATION_MAPPING } from '../operations/index.js'
@@ -18,7 +20,7 @@ import {
   SynthesizerValidator,
 } from '../validation/index.js'
 
-import type { DataAliasInfoEntry, DataAliasInfos } from '../pointers/index.js'
+import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from '../pointers/index.js'
 import type { Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
 import { RunState } from '../../interpreter.js'
 import { EOFBYTES, isEOF } from '../../eof/util.js'
@@ -40,17 +42,6 @@ export const synthesizerArith = (op: ArithmeticOperator, ins: bigint[], out: big
       throw new Error(`Synthesizer: ${op}: Cannot be called by "synthesizerArith"`)
     case 'EXP':
       outPts = [runState.synthesizer.placeEXP(inPts)]
-      break
-    case 'KECCAK256':
-      const offsetNum = Number(ins[0])
-      const lengthNum = Number(ins[1])
-      const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, lengthNum)
-      const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
-      const data = runState.memory.read(offsetNum, lengthNum)
-      if ( bytesToBigInt(data) !== mutDataPt.value ) {
-        throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
-      }
-      outPts = [runState.synthesizer.loadKeccak(mutDataPt, out)]
       break
     default:
       outPts = runState.synthesizer.placeArith(op, inPts)
@@ -192,7 +183,7 @@ export async function synthesizerEnvInf(op: string, runState: RunState, target?:
       )
       break
     case 'EXTCODEHASH':
-      // These opcode has one input and one output
+      // This opcode has one input and one output
       if ( target === undefined ){
         throw new Error(`Synthesizer: ${op}: Must have an input address`)
       }
@@ -200,7 +191,12 @@ export async function synthesizerEnvInf(op: string, runState: RunState, target?:
         throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
       const codePt = await prepareEXTCodePt(runState, target)
-      dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
+      if (codePt.value === BIGINT_0){
+        dataPt = runState.synthesizer.loadAuxin(BIGINT_0)
+      } else {
+        dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
+      }
+      
       break
     case 'ADDRESS':
     case 'ORIGIN':
@@ -209,6 +205,7 @@ export async function synthesizerEnvInf(op: string, runState: RunState, target?:
     case 'CALLDATASIZE':
     case 'CODESIZE':
     case 'GASPRICE':
+    case 'RETURNDATASIZE':
       // These opcodes have no input and one output
       dataPt = runState.synthesizer.loadEnvInf(
         runState.env.address.toString(),
@@ -243,6 +240,9 @@ export class Synthesizer {
   public auxin: Auxin
   public envInf: Map<string, {value: bigint, wireIndex: number}>
   public blkInf: Map<string, {value: bigint, wireIndex: number}>
+  public storagePt: Map<bigint, DataPt>
+  public logPt: {topics: bigint[], valPt: DataPt}[]
+  public TStoragePt: Map<string, Map<bigint, DataPt>>
   protected placementIndex: number
   private subcircuitNames
   readonly subcircuitInfoByName: SubcircuitInfoByName
@@ -250,11 +250,15 @@ export class Synthesizer {
   constructor() {
     this.placements = new Map()
     this.placements.set(LOAD_PLACEMENT_INDEX, LOAD_PLACEMENT)
+    this.placements.set(RETURN_PLACEMENT_INDEX, RETURN_PLACEMENT)
     this.placements.set(KECCAK_PLACEMENT_INDEX, KECCAK_PLACEMENT)   
 
     this.auxin = new Map()
     this.envInf = new Map()
     this.blkInf = new Map()
+    this.storagePt = new Map()
+    this.logPt = []
+    this.TStoragePt = new Map()
     this.placementIndex = INITIAL_PLACEMENT_INDEX
     this.subcircuitNames = subcircuits.map((circuit) => circuit.name)
     this.subcircuitInfoByName = new Map()
@@ -278,7 +282,7 @@ export class Synthesizer {
    * @returns 생성된 출력 데이터 포인트
    * @private
    */
-  private _addToLoadPlacement(pointerIn: DataPt): DataPt {
+  private _addWireToLoadPlacement(pointerIn: DataPt): DataPt {
     // 기존 output list의 길이를 새로운 출력의 인덱스로 사용
     if ( this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.length != this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length ){
       throw new Error(`Mismatches in the Load wires`)
@@ -324,7 +328,7 @@ export class Synthesizer {
     }
     const pointerIn: DataPt = DataPointFactory.create(inPtRaw)
 
-    return this._addToLoadPlacement(pointerIn)
+    return this._addWireToLoadPlacement(pointerIn)
   }
 
   public loadAuxin(value: bigint): DataPt {
@@ -337,7 +341,7 @@ export class Synthesizer {
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
-    const outPt = this._addToLoadPlacement(pointerIn)
+    const outPt = this._addWireToLoadPlacement(pointerIn)
     this.auxin.set(value, outPt.wireIndex!)
     return outPt
   }
@@ -361,13 +365,65 @@ export class Synthesizer {
       sourceSize: sourceSize
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
-    const outPt = this._addToLoadPlacement(pointerIn)
+    const outPt = this._addWireToLoadPlacement(pointerIn)
     const envInfEntry = {
       value: value,
       wireIndex: outPt.wireIndex!
     }
     this.envInf.set(key, envInfEntry)
     return outPt
+  }
+
+  public loadStorage(codeAddress: string, key: bigint, value: bigint): DataPt {
+    let outPt: DataPt
+    if( this.storagePt.has(key) ) {
+      outPt = this.storagePt.get(key)!
+    } else {
+      const inPtRaw: CreateDataPointParams = {
+        source: `code: ${codeAddress}`,
+        key: key,
+        value: value,
+        sourceSize: DEFAULT_SOURCE_SIZE,
+      }
+      const inPt = DataPointFactory.create(inPtRaw)
+      this.storagePt.set(key, inPt)
+      outPt = this._addWireToLoadPlacement(inPt)
+    }
+    return outPt
+  }
+
+  public storeStorage(key: bigint, inPt: DataPt): void {
+    this.storagePt.set(key, inPt)
+    const outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
+    // 출력 데이터 포인트 생성
+    const outPtRaw: CreateDataPointParams = {
+      dest: 'Storage',
+      key: key,
+      wireIndex: outWireIndex,
+      value: inPt.value,
+      sourceSize: DEFAULT_SOURCE_SIZE,
+    }
+    const outPt = DataPointFactory.create(outPtRaw)
+    // 입출력 데이터 포인터 쌍을 ReturnBuffer의 새로운 입출력 와이어 쌍으로 추가
+    this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(inPt)
+    this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(outPt)
+  }
+
+  public storeLog(topics: bigint[], inPt: DataPt): void {
+    this.logPt.push({topics: topics, valPt: inPt})
+    const outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
+    // 출력 데이터 포인트 생성
+    const outPtRaw: CreateDataPointParams = {
+      dest: 'LOG',
+      topics: topics,
+      wireIndex: outWireIndex,
+      value: inPt.value,
+      sourceSize: DEFAULT_SOURCE_SIZE,
+    }
+    const outPt = DataPointFactory.create(outPtRaw)
+    // 입출력 데이터 포인터 쌍을 ReturnBuffer의 새로운 입출력 와이어 쌍으로 추가
+    this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(inPt)
+    this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(outPt)
   }
 
   public loadBlkInf(blkNumber: bigint, type: string, value: bigint): DataPt {
@@ -385,7 +441,7 @@ export class Synthesizer {
       sourceSize: DEFAULT_SOURCE_SIZE
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
-    const outPt = this._addToLoadPlacement(pointerIn)
+    const outPt = this._addWireToLoadPlacement(pointerIn)
     const blkInfEntry = {
       value: value,
       wireIndex: outPt.wireIndex!
@@ -394,10 +450,12 @@ export class Synthesizer {
     return outPt
   }
 
-  public loadKeccak( inPt: DataPt, outValue: bigint ): DataPt {
+  public loadKeccak( inPt: DataPt, outValue: bigint, length?: bigint ): DataPt {
     // 연산 실행
     const value = inPt.value
-    const _outValue = this.executeOperation('KECCAK256', [value])
+    const valueInBytes = bigIntToBytes(value)
+    const data = setLengthLeft(valueInBytes, Number(length) ?? valueInBytes.length)
+    const _outValue = BigInt(bytesToHex(keccak256(data)))
     if ( _outValue !== outValue ){
       throw new Error(`Synthesizer: loadKeccak: The Keccak hash may be customized`)
     }
@@ -644,6 +702,28 @@ export class Synthesizer {
     return this.handleBinaryOp(name, inPts)
   }
 
+  public adjustMemoryPts = (dataPts: DataPt[], memoryPts: MemoryPts, srcOffset: number, dstOffset: number, viewLength: number): void => {
+    for (const [index, memoryPt] of memoryPts.entries()) {
+      const containerOffset = memoryPt.memOffset
+      const containerSize = memoryPt.containerSize
+      const containerEndPos = containerOffset + containerSize
+      const actualOffset = Math.max(srcOffset, containerOffset)
+      const actualEndPos = Math.min(srcOffset + viewLength, containerEndPos)
+      const actualContainerSize = actualEndPos - actualOffset
+      const adjustedOffset = actualOffset - srcOffset + dstOffset
+      memoryPt.memOffset = adjustedOffset
+      memoryPt.containerSize = actualContainerSize
+
+      const endingGap = containerEndPos - actualEndPos
+      let outPts = [dataPts[index]]
+      if (endingGap > 0){
+        // SHR data
+        outPts = this.placeArith('SHR', [this.loadAuxin(BigInt(endingGap*8)), dataPts[index]])
+      }
+      memoryPt.dataPt = outPts[0]
+    }
+  }
+
   /**
    * MLOAD는 고정적으로 32바이트를 읽지만, offset이 1바이트 단위이기 때문에 데이터 변형이 발생할 수 있습니다.
    * 데이터 변형을 추적하기 위해 데이터 변형 여부를 확인하는 함수를 구현합니다.
@@ -665,15 +745,17 @@ export class Synthesizer {
    * @returns {DataPt} 생성된 데이터 포인트.
    */
   private _resolveDataAlias(dataAliasInfos: DataAliasInfos): DataPt {
-    const ADDTargets: number[] = []
-    const prevPlacementIndex = this.placementIndex
+    const ADDTargets: {subcircuitID: number, wireID: number}[] = []
     // 먼저 각각을 shift 후 mask와 AND 해줌
-
+    const initPlacementIndex = this.placementIndex
     for (const info of dataAliasInfos) {
+      let prevPlacementIndex = this.placementIndex
       // this method may increases the placementIndex
       this._applyShiftAndMask(info)
       if (prevPlacementIndex !== this.placementIndex) {
-        ADDTargets.push(this.placementIndex - 1)
+        ADDTargets.push({subcircuitID: this.placementIndex - 1, wireID: 0})
+      } else {
+        ADDTargets.push({subcircuitID: Number(info.dataPt.source), wireID: info.dataPt.wireIndex!})
       }
     }
 
@@ -683,7 +765,7 @@ export class Synthesizer {
       this._addAndPlace(ADDTargets)
     }
 
-    if (prevPlacementIndex === this.placementIndex) {
+    if (initPlacementIndex === this.placementIndex) {
       // there was no alias or shift
       return dataAliasInfos[0].dataPt
     }
@@ -766,19 +848,19 @@ export class Synthesizer {
   /**
    * AND 결과물들을 모두 ADD 해줍니다.
    *
-   * @param {number[]} addTargets - OR 연산 대상 인덱스 배열.
+   * @param {{subcircuitID: number, wireID: number}[]} addTargets - OR 연산 대상 인덱스 배열.
    */
-  private _addAndPlace(addTargets: number[]): void {
+  private _addAndPlace(addTargets: {subcircuitID: number, wireID: number}[]): void {
     let inPts: DataPt[] = [
-      this.placements.get(addTargets[0])!.outPts[0],
-      this.placements.get(addTargets[1])!.outPts[0],
+      this.placements.get(addTargets[0].subcircuitID)!.outPts[addTargets[0].wireID],
+      this.placements.get(addTargets[1].subcircuitID)!.outPts[addTargets[1].wireID],
     ]
     this.placeArith('ADD', inPts)
 
     for (let i = 2; i < addTargets.length; i++) {
       inPts = [
         this.placements.get(this.placementIndex - 1)!.outPts[0],
-        this.placements.get(addTargets[i])!.outPts[0],
+        this.placements.get(addTargets[i].subcircuitID)!.outPts[addTargets[i].wireID],
       ]
       this.placeArith('ADD', inPts)
     }
@@ -787,6 +869,11 @@ export class Synthesizer {
   private _place(name: string, inPts: DataPt[], outPts: DataPt[]) {
     if (!this.subcircuitNames.includes(name)) {
       throw new Error(`Subcircuit name ${name} is not defined`)
+    }
+    for (const inPt of inPts){
+      if( typeof inPt.source !== 'number' ){
+        throw new Error(`Synthesizer: Placing a subcircuit: Input wires to a new placement must be connected to the output wires of other placements.`)
+      }
     }
     addPlacement(this.placements, {
       name,

@@ -502,7 +502,26 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For synthesizer //
-      synthesizerArith('KECCAK256', [offset, length], r, runState)
+      const [offsetPt, lengthPt] = runState.stackPt.popN(2)
+      if (offsetPt.value !== offset || lengthPt.value !== length){
+        throw new Error(`Synthesizer: KECCAK256: Input data mismatch`)
+      }
+      const offsetNum = Number(offset)
+      const lengthNum = Number(length)
+      const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, lengthNum)
+      let dataPt
+      if (dataAliasInfos.length > 0){
+        dataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
+      } else {
+        dataPt = runState.synthesizer.loadAuxin(BIGINT_0)
+      }
+      if ( bytesToBigInt(data) !== dataPt.value ) {
+        throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
+      }
+      runState.stackPt.push(runState.synthesizer.loadKeccak(dataPt, r, length))
+      if (runState.stack.peek(1)[0] !== runState.stackPt.peek(1)[0].value){
+        throw new Error(`Synthesizer: KECCAK256: Output data mismatch`)
+      }
     },
   ],
   // 0x30 range - closure state
@@ -623,12 +642,12 @@ export const handlers: Map<number, OpHandler> = new Map([
         let memoryPtsToCopy: MemoryPts = []
         if (calldataMemoryPts.length > 0) {
           // Case: The calldata is originated from the parent context
-          memoryPtsToCopy = copyMemoryRegion(runState, dataOffset, dataLength, calldataMemoryPts)
+          memoryPtsToCopy = copyMemoryRegion(runState, dataOffset, dataLength, calldataMemoryPts, memOffset)
         } else {
           // Case: The calldata is originated from Environmental Information
           const data = getDataSlice(runState.interpreter.getCallData(), dataOffset, dataLength)
           const entryToCopy: MemoryPtEntry = {
-            memOffset: 0,
+            memOffset: Number(memOffset),
             containerSize: Number(dataLength),
             dataPt: runState.synthesizer.loadEnvInf(
               runState.env.address.toString(),
@@ -643,7 +662,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         for (const entry of memoryPtsToCopy) {
           // the lower index, the older data
-          runState.memoryPt.write(Number(memOffset) + entry.memOffset, entry.containerSize, entry.dataPt)
+          runState.memoryPt.write(entry.memOffset, entry.containerSize, entry.dataPt)
         }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
@@ -836,6 +855,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x3d,
     function (runState) {
       runState.stack.push(runState.interpreter.getReturnDataSize())
+
+      // For Synthesizer //
+      synthesizerEnvInf('RETURNDATASIZE',runState)
     },
   ],
   // 0x3e: RETURNDATACOPY
@@ -853,6 +875,24 @@ export const handlers: Map<number, OpHandler> = new Map([
         const memOffsetNum = Number(memOffset)
         const lengthNum = Number(dataLength)
         runState.memory.write(memOffsetNum, lengthNum, data)
+      }
+
+      // For Synthesizer //
+      const [memOffsetPt, returnDataOffsetPt, dataLengthPt] = runState.stackPt.popN(3)
+      if ( memOffset !== memOffsetPt.value || returnDataOffset !== returnDataOffsetPt.value || dataLength != dataLengthPt.value ){
+        throw new Error(`Synthesizer: 'RETURNDATACOPY': Input data mismatch`)
+      }
+      if (dataLength != BIGINT_0){
+        const copiedMemoryPts = copyMemoryRegion(runState, returnDataOffset, dataLength, runState.returnMemoryPts, memOffset)
+        for (const entry of copiedMemoryPts) {
+          // the lower index, the older data
+          runState.memoryPt.write(entry.memOffset, entry.containerSize, entry.dataPt)
+        }
+      }
+      const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
+      const outData = runState.memory.read(Number(memOffset), Number(dataLength))
+      if (!equalsBytes(_outData, outData)) {
+        throw new Error(`Synthesizer: RETURNDATACOPY: Output data mismatch`)
       }
     },
   ],
@@ -1184,6 +1224,19 @@ export const handlers: Map<number, OpHandler> = new Map([
       const value = await runState.interpreter.storageLoad(keyBuf)
       const valueBigInt = value.length ? bytesToBigInt(value) : BIGINT_0
       runState.stack.push(valueBigInt)
+
+      // For Synthesizer //
+      if ( key !== runState.stackPt.pop().value ){
+        throw new Error(`Synthesizer: 'SLOAD': Input data mismatch`)
+      }
+      runState.stackPt.push(runState.synthesizer.loadStorage(
+        runState.env.address.toString(),
+        key,
+        valueBigInt,
+      ))
+      if ( runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0] ) {
+        throw new Error(`Synthesizer: 'SLOAD': Output data mismatch`)
+      }
     },
   ],
   // 0x55: SSTORE
@@ -1202,6 +1255,13 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       await runState.interpreter.storageStore(keyBuf, value)
+
+      // For Synthesizer //
+      const [keyPt, valPt] = runState.stackPt.popN(2)
+      if ( key !== keyPt.value || val !== valPt.value ){
+        throw new Error(`Synthesizer: 'SSTORE': Input data mismatch`)
+      }
+      runState.synthesizer.storeStorage(key, valPt)
     },
   ],
   // 0x56: JUMP
@@ -1280,6 +1340,19 @@ export const handlers: Map<number, OpHandler> = new Map([
       const value = runState.interpreter.transientStorageLoad(keyBuf)
       const valueBN = value.length ? bytesToBigInt(value) : BIGINT_0
       runState.stack.push(valueBN)
+
+      // For Synthesizer //
+      if ( key !== runState.stackPt.pop().value ){
+        throw new Error(`Synthesizer: 'TLOAD': Input data mismatch`)
+      }
+      let dataPt = runState.synthesizer.TStoragePt.get(runState.env.address.toString())?.get(key)
+      if (dataPt === undefined){
+        dataPt = runState.synthesizer.loadAuxin(BIGINT_0)
+      }
+      runState.stackPt.push(dataPt)
+      if ( runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0] ) {
+        throw new Error(`Synthesizer: 'TLOAD': Output data mismatch`)
+      }
     },
   ],
   // 0x5d: TSTORE (EIP 1153)
@@ -1302,6 +1375,17 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       runState.interpreter.transientStorageStore(keyBuf, value)
+
+      // For Synthesizer //
+      const [keyPt, valPt] = runState.stackPt.popN(2)
+      if ( key !== keyPt.value || val !== valPt.value ){
+        throw new Error(`Synthesizer: 'TSTORE': Input data mismatch`)
+      }
+      const TStoragePt = runState.synthesizer.TStoragePt
+      const thisAddress = runState.env.address.toString()
+      const entry = TStoragePt.get(thisAddress)?? new Map()
+      entry.set(key, valPt)
+      TStoragePt.set(thisAddress, entry)
     },
   ],
   // 0x5e: MCOPY (5656)
@@ -1311,6 +1395,22 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [dst, src, length] = runState.stack.popN(3)
       const data = runState.memory.read(Number(src), Number(length), true)
       runState.memory.write(Number(dst), Number(length), data)
+
+      // For Synthesizer //
+      const [dstPt, srcPt, lengthPt] = runState.stackPt.popN(3)
+      if ( dst !== dstPt.value || src !== srcPt.value || length != lengthPt.value ){
+        throw new Error(`Synthesizer: 'MCOPY': Input data mismatch`)
+      }
+      const copiedMemoryPts = copyMemoryRegion(runState, src, length, undefined, dst)
+      for (const entry of copiedMemoryPts) {
+        // the lower index, the older data
+        runState.memoryPt.write(entry.memOffset, entry.containerSize, entry.dataPt)
+      }
+      const _outData = runState.memoryPt.viewMemory(Number(dst), Number(length))
+      const outData = runState.memory.read(Number(dst), Number(length))
+      if (!equalsBytes(_outData, outData)) {
+        throw new Error(`Synthesizer: MCOPY: Output data mismatch`)
+      }
     },
   ],
   // 0x5f: PUSH0
@@ -1422,6 +1522,21 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       runState.interpreter.log(mem, topicsCount, topicsBuf)
+
+      // For Synthesizer //
+      const [memOffsetPt, memLengthPt] = runState.stackPt.popN(2)
+      const topicsPts = runState.stackPt.popN(topicsCount)
+      if ( memOffsetPt.value !== memOffset || memLengthPt.value !== memLength ){
+        throw new Error(`Synthesizer: 'LOG': Input data mismatch`)
+      }
+      for ( let i=0; i<topicsCount; i++ ){
+        if( topicsPts[i].value !== topics[i] ){
+          throw new Error(`Synthesizer: 'LOG': Input data mismatch`)
+        }
+      }
+      const dataAlias = runState.memoryPt.getDataAlias(Number(memOffset), Number(memLength))
+      const dataPt = runState.synthesizer.placeMemoryToStack(dataAlias)
+      runState.synthesizer.storeLog(topics, dataPt)
     },
   ],
   // 0xd0: DATALOAD

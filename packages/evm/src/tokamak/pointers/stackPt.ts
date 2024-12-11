@@ -78,6 +78,9 @@ export class StackPt {
     if (this._len >= this._maxHeight) {
       throw new EvmError(ERROR.STACK_OVERFLOW)
     }
+    if (typeof pt.source !== 'number'){
+      throw new Error(`Synthesizer: Push to StackPt: Every item on the StackPt must indicate an output wire of a subcirciut placement.`)
+    }
 
     // Read current length, set `_storePt` to value, and then increase the length
     this._storePt[this._len++] = pt

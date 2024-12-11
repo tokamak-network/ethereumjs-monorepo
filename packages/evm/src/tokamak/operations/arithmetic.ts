@@ -1,6 +1,5 @@
-import { bigIntToBytes, bytesToHex } from '@ethereumjs/util'
+import { bytesToHex } from '@ethereumjs/util'
 import { convertToSigned } from '../utils/index.js'
-import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 // 연산자 타입 정의
 export type ArithmeticOperator =
@@ -31,8 +30,6 @@ export type ArithmeticOperator =
   | 'SIGNEXTEND'
   | 'DecToBit'
   | 'SubEXP'
-  | 'KECCAK256'
-
 export type ArithmeticFunction = (...args: bigint[]) => bigint | bigint[]
 
 
@@ -238,14 +235,6 @@ export class ArithmeticOperations {
     const cOut = ( c * (b * a + (1n - b)) ) % ArithmeticOperations.N // <=> c * (b ? aOut : 1)
     return [cOut, aOut]
   }
-
-  /**
-   * Subroutine for KECCAK256
-   */
-  static keccak256(data: bigint): bigint {
-    const r = BigInt(bytesToHex(keccak256(bigIntToBytes(data))))
-    return r
-  }
 }
 
 // 연산자와 함수 매핑
@@ -277,5 +266,4 @@ export const OPERATION_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> =
   SIGNEXTEND: ArithmeticOperations.signextend,
   DecToBit: ArithmeticOperations.decToBit,
   SubEXP: ArithmeticOperations.subEXP,
-  KECCAK256: ArithmeticOperations.keccak256,
 } as const

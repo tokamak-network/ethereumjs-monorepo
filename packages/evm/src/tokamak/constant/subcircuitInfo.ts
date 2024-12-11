@@ -270,4 +270,12 @@ export const subcircuits = [
     Out_idx: [1, 16],
     In_idx: [17, 16],
   },
+  {
+    id: 33,
+    opcode: '',
+    name: 'ReturnBuffer',
+    Nwires: 0,
+    Out_idx: [1, 16],
+    In_idx: [17, 16],
+  },
 ]
