@@ -1,5 +1,8 @@
 import { BIGINT_0, BIGINT_1, bigIntToBytes, bytesToBigInt, bytesToHex, setLengthLeft } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
+
+import { EOFBYTES, isEOF } from '../../eof/util.js'
+import { createAddressFromStackBigInt, getDataSlice } from '../../opcodes/util.js'
 import {
   DEFAULT_SOURCE_SIZE,
   INITIAL_PLACEMENT_INDEX,
@@ -21,23 +24,27 @@ import {
 } from '../validation/index.js'
 
 import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from '../pointers/index.js'
+import type { RunState } from '../../interpreter.js'
 import type { Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
-import { RunState } from '../../interpreter.js'
-import { EOFBYTES, isEOF } from '../../eof/util.js'
-import { createAddressFromStackBigInt, getDataSlice } from '../../opcodes/util.js'
 
-export const synthesizerArith = (op: ArithmeticOperator, ins: bigint[], out: bigint, runState: RunState): void => {
+export const synthesizerArith = (
+  op: ArithmeticOperator,
+  ins: bigint[],
+  out: bigint,
+  runState: RunState,
+): void => {
   const inPts = runState.stackPt.popN(runState.synthesizer.subcircuitInfoByName.get(op)!.NInWires)
-  if ( inPts.length !== ins.length) {
+
+  if (inPts.length !== ins.length) {
     throw new Error(`Synthesizer: ${op}: Input data mismatch`)
   }
-  for (let i=0; i < ins.length; i++ ){
-    if (inPts[i].value !== ins[i] ){
+  for (let i = 0; i < ins.length; i++) {
+    if (inPts[i].value !== ins[i]) {
       throw new Error(`Synthesizer: ${op}: Input data mismatch`)
     }
   }
   let outPts: DataPt[]
-  switch(op){
+  switch (op) {
     case 'DecToBit':
       throw new Error(`Synthesizer: ${op}: Cannot be called by "synthesizerArith"`)
     case 'EXP':
@@ -47,7 +54,7 @@ export const synthesizerArith = (op: ArithmeticOperator, ins: bigint[], out: big
       outPts = runState.synthesizer.placeArith(op, inPts)
       break
   }
-  if ( outPts.length !== 1 || outPts[0].value !== out) {
+  if (outPts.length !== 1 || outPts[0].value !== out) {
     throw new Error(`Synthesizer: ${op}: Output data mismatch`)
   }
   runState.stackPt.push(outPts[0])
@@ -55,21 +62,17 @@ export const synthesizerArith = (op: ArithmeticOperator, ins: bigint[], out: big
 
 export const synthesizerBlkInf = (op: string, runState: RunState, target?: bigint): void => {
   let dataPt: DataPt
-  switch (op){
+  switch (op) {
     case 'BLOCKHASH':
     case 'BLOBHASH':
       // These opcodes have one input and one output
-      if ( target === undefined ){
+      if (target === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input block number`)
       }
-      if ( target !== runState.stackPt.pop().value ){
+      if (target !== runState.stackPt.pop().value) {
         throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
-      dataPt = runState.synthesizer.loadBlkInf(
-        target,
-        op,
-        runState.stack.peek(1)[0],
-      )
+      dataPt = runState.synthesizer.loadBlkInf(target, op, runState.stack.peek(1)[0])
       break
     case 'COINBASE':
     case 'TIMESTAMP':
@@ -91,12 +94,17 @@ export const synthesizerBlkInf = (op: string, runState: RunState, target?: bigin
       throw new Error(`Synthesizer: Dealing with invalid block information instruction`)
   }
   runState.stackPt.push(dataPt)
-  if ( runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0] ) {
+  if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
     throw new Error(`Synthesizer: ${op}: Output data mismatch`)
   }
 }
 
-export async function prepareEXTCodePt(runState: RunState, target: bigint, _offset?: bigint, _size?: bigint): Promise<DataPt> {
+export async function prepareEXTCodePt(
+  runState: RunState,
+  target: bigint,
+  _offset?: bigint,
+  _size?: bigint,
+): Promise<DataPt> {
   const address = createAddressFromStackBigInt(target)
   let code = await runState.stateManager.getCode(address)
   let codeType = 'EXTCode'
@@ -115,21 +123,26 @@ export async function prepareEXTCodePt(runState: RunState, target: bigint, _offs
     codeType,
     dataBigint,
     codeOffsetNum,
-    Number(dataLength)
+    Number(dataLength),
   )
   return dataPt
 }
 
-export async function synthesizerEnvInf(op: string, runState: RunState, target?: bigint, offset?: bigint): Promise<void> {
+export async function synthesizerEnvInf(
+  op: string,
+  runState: RunState,
+  target?: bigint,
+  offset?: bigint,
+): Promise<void> {
   // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functionst.ts에서 직접 처리 합니다.
   let dataPt: DataPt
-  switch (op){
-    case 'CALLDATALOAD':
+  switch (op) {
+    case 'CALLDATALOAD': {
       // These opcodes have one input and one output
-      if ( offset === undefined ){
+      if (offset === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input offset`)
       }
-      if ( offset !== runState.stackPt.pop().value ){
+      if (offset !== runState.stackPt.pop().value) {
         throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
       const i = Number(offset)
@@ -158,7 +171,7 @@ export async function synthesizerEnvInf(op: string, runState: RunState, target?:
           runState.env.address.toString(),
           'Calldata(User)',
           runState.stack.peek(1)[0],
-          i
+          i,
         )
       }
       runState.stackPt.push(dataPt)
@@ -167,27 +180,24 @@ export async function synthesizerEnvInf(op: string, runState: RunState, target?:
       }
 
       break
+    }
     case 'BALANCE':
-    case 'EXTCODESIZE':
+    case 'EXTCODESIZE': 
       // These opcodes have one input and one output
-      if ( target === undefined ){
+      if (target === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input address`)
       }
-      if ( target !== runState.stackPt.pop().value ){
+      if (target !== runState.stackPt.pop().value) {
         throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
-      dataPt = runState.synthesizer.loadEnvInf(
-        target.toString(16),
-        op,
-        runState.stack.peek(1)[0],
-      )
+      dataPt = runState.synthesizer.loadEnvInf(target.toString(16), op, runState.stack.peek(1)[0])
       break
     case 'EXTCODEHASH':
       // This opcode has one input and one output
       if ( target === undefined ){
         throw new Error(`Synthesizer: ${op}: Must have an input address`)
       }
-      if ( target !== runState.stackPt.pop().value ){
+      if (target !== runState.stackPt.pop().value) {
         throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
       const codePt = await prepareEXTCodePt(runState, target)
@@ -196,7 +206,6 @@ export async function synthesizerEnvInf(op: string, runState: RunState, target?:
       } else {
         dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
       }
-      
       break
     case 'ADDRESS':
     case 'ORIGIN':
@@ -217,15 +226,21 @@ export async function synthesizerEnvInf(op: string, runState: RunState, target?:
       throw new Error(`Synthesizer: Dealing with invalid environment information instruction`)
   }
   runState.stackPt.push(dataPt)
-  if ( runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0] ) {
+  if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
     throw new Error(`Synthesizer: ${op}: Output data mismatch`)
   }
 }
 
 // 기본값(2)과 다른 입력 개수를 가진 연산들만 정의
-type SubcircuitInfoByNameEntry = {id: number, NWires: number, inWireIndex: number, NInWires: number, outWireIndex: number, NOutWires: number}
-type SubcircuitInfoByName =  Map<string, SubcircuitInfoByNameEntry>
-
+type SubcircuitInfoByNameEntry = {
+  id: number
+  NWires: number
+  inWireIndex: number
+  NInWires: number
+  outWireIndex: number
+  NOutWires: number
+}
+type SubcircuitInfoByName = Map<string, SubcircuitInfoByNameEntry>
 
 /**
  * Synthesizer 클래스는 서브서킷과 관련된 데이터를 관리합니다.
@@ -273,7 +288,6 @@ export class Synthesizer {
       }
       this.subcircuitInfoByName.set(subcircuit.name, entryObject)
     }
-    
   }
 
   /**
@@ -284,7 +298,10 @@ export class Synthesizer {
    */
   private _addWireToLoadPlacement(pointerIn: DataPt): DataPt {
     // 기존 output list의 길이를 새로운 출력의 인덱스로 사용
-    if ( this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.length != this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length ){
+    if (
+      this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.length !==
+      this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length
+    ) {
       throw new Error(`Mismatches in the Load wires`)
     }
     const outWireIndex = this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length
@@ -332,7 +349,7 @@ export class Synthesizer {
   }
 
   public loadAuxin(value: bigint): DataPt {
-    if ( this.auxin.has(value) ) {
+    if (this.auxin.has(value)) {
       return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.auxin.get(value)!]
     }
     const inPtRaw: CreateDataPointParams = {
@@ -346,29 +363,35 @@ export class Synthesizer {
     return outPt
   }
 
-  public loadEnvInf(codeAddress: string, type: string, value: bigint, _offset?: number, size?: number): DataPt {
+  public loadEnvInf(
+    codeAddress: string,
+    type: string,
+    value: bigint,
+    _offset?: number,
+    size?: number,
+  ): DataPt {
     const offset = _offset ?? 0
     const whereItFrom = {
       source: `code: ${codeAddress}`,
-      type: type,
-      offset: offset,
+      type,
+      offset,
       length: size,
     }
     const key = JSON.stringify(whereItFrom)
-    if ( this.envInf.has(key) ) {
+    if (this.envInf.has(key)) {
       return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.envInf.get(key)!.wireIndex]
     }
     const sourceSize = size ?? DEFAULT_SOURCE_SIZE
     const inPtRaw: CreateDataPointParams = {
       ...whereItFrom,
-      value: value,
-      sourceSize: sourceSize
+      value,
+      sourceSize,
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
     const outPt = this._addWireToLoadPlacement(pointerIn)
     const envInfEntry = {
-      value: value,
-      wireIndex: outPt.wireIndex!
+      value,
+      wireIndex: outPt.wireIndex!,
     }
     this.envInf.set(key, envInfEntry)
     return outPt
@@ -429,22 +452,22 @@ export class Synthesizer {
   public loadBlkInf(blkNumber: bigint, type: string, value: bigint): DataPt {
     const whereItFrom = {
       source: `block number: ${Number(blkNumber)}`,
-      type: type,
+      type,
     }
     const key = JSON.stringify(whereItFrom)
-    if ( this.blkInf.has(key) ) {
+    if (this.blkInf.has(key)) {
       return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.blkInf.get(key)!.wireIndex]
     }
     const inPtRaw: CreateDataPointParams = {
       ...whereItFrom,
-      value: value,
-      sourceSize: DEFAULT_SOURCE_SIZE
+      value,
+      sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
     const outPt = this._addWireToLoadPlacement(pointerIn)
     const blkInfEntry = {
-      value: value,
-      wireIndex: outPt.wireIndex!
+      value,
+      wireIndex: outPt.wireIndex!,
     }
     this.blkInf.set(key, blkInfEntry)
     return outPt
@@ -651,7 +674,7 @@ export class Synthesizer {
     const wireIndex = _wireIndex ?? 0
     return DataPointFactory.create({
       source: this.placementIndex,
-      wireIndex: wireIndex,
+      wireIndex,
       value,
       sourceSize: DEFAULT_SOURCE_SIZE,
     })

@@ -137,6 +137,24 @@ describe('synthesizer: ', () => {
         expected: '-1', // -10 % 3 = -1
       },
       {
+        name: 'SMOD with positive numbers',
+        bytecode: '0x6003600A5F0B07', // PUSH1 3, PUSH1 10, PUSH0, SIGNEXTEND, SMOD, PUSH1 0xC0, MSTORE
+        description: 'should handle SMOD operation with positive numbers correctly',
+        expected: '1', // 10 % 3 = 1
+      },
+      {
+        name: 'SMOD with negative divisor',
+        bytecode: '0x60F6600A5F0B07', // PUSH1 -10, PUSH1 10, PUSH0, SIGNEXTEND, SMOD, PUSH1 0xC0, MSTORE
+        description: 'should handle SMOD operation with negative divisor correctly',
+        expected: '1', // 10 % -3 = 1
+      },
+      {
+        name: 'SMOD with both negative',
+        bytecode: '0x60F660F65F0B07', // PUSH1 -10, PUSH1 -3, PUSH0, SIGNEXTEND, SMOD, PUSH1 0xC0, MSTORE
+        description: 'should handle SMOD operation with both negative correctly',
+        expected: '-1', // -10 % -3 = -1
+      },
+      {
         name: 'ADDMOD',
         bytecode: '0x6007600360050808', // PUSH1 7, PUSH1 3, PUSH1 5, ADDMOD, PUSH1 0xE0, MSTORE
         description: 'should handle ADDMOD operation correctly',
