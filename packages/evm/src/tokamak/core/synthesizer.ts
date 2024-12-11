@@ -146,7 +146,7 @@ export async function synthesizerEnvInf(
   // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functionst.ts에서 직접 처리 합니다.
   let dataPt: DataPt
   switch (op) {
-    case 'CALLDATALOAD':
+    case 'CALLDATALOAD': {
       // These opcodes have one input and one output
       if (offset === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input offset`)
@@ -189,8 +189,9 @@ export async function synthesizerEnvInf(
       }
 
       break
+    }
     case 'BALANCE':
-    case 'EXTCODESIZE':
+    case 'EXTCODESIZE': {
       // These opcodes have one input and one output
       if (target === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input address`)
@@ -200,7 +201,8 @@ export async function synthesizerEnvInf(
       }
       dataPt = runState.synthesizer.loadEnvInf(target.toString(16), op, runState.stack.peek(1)[0])
       break
-    case 'EXTCODEHASH':
+    }
+    case 'EXTCODEHASH': {
       // These opcode has one input and one output
       if (target === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input address`)
@@ -211,6 +213,7 @@ export async function synthesizerEnvInf(
       const codePt = await prepareEXTCodePt(runState, target)
       dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
       break
+    }
     case 'ADDRESS':
     case 'ORIGIN':
     case 'CALLER':
@@ -295,7 +298,7 @@ export class Synthesizer {
   private _addToLoadPlacement(pointerIn: DataPt): DataPt {
     // 기존 output list의 길이를 새로운 출력의 인덱스로 사용
     if (
-      this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.length !=
+      this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.length !==
       this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length
     ) {
       throw new Error(`Mismatches in the Load wires`)

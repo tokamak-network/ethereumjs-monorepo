@@ -522,12 +522,12 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0x30: ADDRESS
   [
     0x30,
-    function (runState) {
+    async function (runState) {
       const address = bytesToBigInt(runState.interpreter.getAddress().bytes)
       runState.stack.push(address)
 
       // For Synthesizer //
-      synthesizerEnvInf('ADDRESS', runState)
+      await synthesizerEnvInf('ADDRESS', runState)
     },
   ],
   // 0x31: BALANCE
@@ -540,49 +540,49 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(balance)
 
       // For Synthesizer //
-      synthesizerEnvInf('BALANCE', runState, addressBigInt)
+      await synthesizerEnvInf('BALANCE', runState, addressBigInt)
     },
   ],
   // 0x32: ORIGIN
   [
     0x32,
-    function (runState) {
+    async function (runState) {
       runState.stack.push(runState.interpreter.getTxOrigin())
 
       // For Synthesizer //
-      synthesizerEnvInf('ORIGIN', runState)
+      await synthesizerEnvInf('ORIGIN', runState)
     },
   ],
   // 0x33: CALLER
   [
     0x33,
-    function (runState) {
+    async function (runState) {
       runState.stack.push(runState.interpreter.getCaller())
 
       // For Synthesizer //
-      synthesizerEnvInf('ADDRESS', runState)
+      await synthesizerEnvInf('ADDRESS', runState)
     },
   ],
   // 0x34: CALLVALUE
   [
     0x34,
-    function (runState) {
+    async function (runState) {
       runState.stack.push(runState.interpreter.getCallValue())
 
       // For Synthesizer //
-      synthesizerEnvInf('CALLVALUE', runState)
+      await synthesizerEnvInf('CALLVALUE', runState)
     },
   ],
   // 0x35: CALLDATALOAD
   [
     0x35,
-    function (runState) {
+    async function (runState) {
       const pos = runState.stack.pop()
       if (pos > runState.interpreter.getCallDataSize()) {
         runState.stack.push(BIGINT_0)
 
         // For synthesizer //
-        synthesizerEnvInf('CALLDATALOAD', runState, undefined, pos)
+        await synthesizerEnvInf('CALLDATALOAD', runState, undefined, pos)
         return
       }
 
@@ -596,17 +596,17 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For synthesizer //
-      synthesizerEnvInf('CALLDATALOAD', runState, undefined, pos)
+      await synthesizerEnvInf('CALLDATALOAD', runState, undefined, pos)
     },
   ],
   // 0x36: CALLDATASIZE
   [
     0x36,
-    function (runState) {
+    async function (runState) {
       runState.stack.push(runState.interpreter.getCallDataSize())
 
       // For Synthesizer //
-      synthesizerEnvInf('CALLDATASIZE', runState)
+      await synthesizerEnvInf('CALLDATASIZE', runState)
     },
   ],
   // 0x37: CALLDATACOPY
@@ -673,11 +673,11 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0x38: CODESIZE
   [
     0x38,
-    function (runState) {
+    async function (runState) {
       runState.stack.push(runState.interpreter.getCodeSize())
 
       // For Synthesizer //
-      synthesizerEnvInf('CODESIZE', runState)
+      await synthesizerEnvInf('CODESIZE', runState)
     },
   ],
   // 0x39: CODECOPY
@@ -736,7 +736,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.stack.push(BigInt(EOFBYTES.length))
 
         // For Synthesizer //
-        synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
+        await synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
         return
       } else if (common.isActivatedEIP(7702)) {
         code = await eip7702CodeCheck(runState, code)
@@ -747,7 +747,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(size)
 
       // For Synthesizer //
-      synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
+      await synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
     },
   ],
   // 0x3c: EXTCODECOPY
@@ -809,7 +809,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.stack.push(bytesToBigInt(EOFHASH))
 
         // For Synthesizer //
-        synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+        await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
         return
       } else if (common.isActivatedEIP(7702)) {
         const possibleDelegatedAddress = getEIP7702DelegatedAddress(code)
@@ -819,20 +819,20 @@ export const handlers: Map<number, OpHandler> = new Map([
             runState.stack.push(BIGINT_0)
 
             // For Synthesizer //
-            synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+            await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
             return
           }
 
           runState.stack.push(BigInt(bytesToHex(account.codeHash)))
 
           // For Synthesizer //
-          synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+          await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
           return
         } else {
           runState.stack.push(bytesToBigInt(keccak256(code)))
 
           // For Synthesizer //
-          synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+          await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
           return
         }
       }
@@ -842,14 +842,14 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.stack.push(BIGINT_0)
 
         // For Synthesizer //
-        synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+        await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
         return
       }
 
       runState.stack.push(BigInt(bytesToHex(account.codeHash)))
 
       // For Synthesizer //
-      synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+      await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
     },
   ],
   // 0x3d: RETURNDATASIZE
@@ -880,11 +880,11 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0x3a: GASPRICE
   [
     0x3a,
-    function (runState) {
+    async function (runState) {
       runState.stack.push(runState.interpreter.getTxGasPrice())
 
       // For Synthesizer //
-      synthesizerEnvInf('GASPRICE', runState)
+      await synthesizerEnvInf('GASPRICE', runState)
     },
   ],
   // '0x40' range - block operations

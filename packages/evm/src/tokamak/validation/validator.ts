@@ -1,9 +1,8 @@
-import {
-  InvalidInputCountError,
-  SynthesizerOperationError,
-  UndefinedSubcircuitError,
-} from './errors.js'
+import { bytesToBigInt } from '../../../../util/dist/cjs/index.js'
 
+import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
+
+import type { RunState } from '../../interpreter.js'
 import type { DataPt } from '../types/index.js'
 
 /**
