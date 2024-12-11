@@ -1,7 +1,10 @@
-import { InvalidInputCountError, SynthesizerOperationError, UndefinedSubcircuitError } from './errors.js'
+import {
+  InvalidInputCountError,
+  SynthesizerOperationError,
+  UndefinedSubcircuitError,
+} from './errors.js'
 
 import type { DataPt } from '../types/index.js'
-
 
 /**
  * Synthesizer 관련 유효성 검사를 담당하는 클래스
@@ -75,7 +78,7 @@ export class SynthesizerValidator {
     if (value < 0n) {
       throw new Error('Negative values are not allowed')
     }
-    if (value > 2n**256n -1n) {
+    if (value > 2n ** 256n - 1n) {
       throw new Error('The value exceeds Ethereum word size')
     }
   }
@@ -101,26 +104,26 @@ export class SynthesizerInstructionValidator {
 
   public validateArithInputs(inPts: DataPt[], ins: bigint[], op: string): void {
     if (inPts.length !== ins.length) {
-      throw new Error(`Synthesizer: ${op}: Input data mismatch`);
+      throw new Error(`Synthesizer: ${op}: Input data mismatch`)
     }
 
     for (let i = 0; i < ins.length; i++) {
       if (inPts[i].value !== ins[i]) {
-        throw new Error(`Synthesizer: ${op}: Input data mismatch`);
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
     }
   }
 
   public validateArithOutput(outPt: DataPt, expectedValue: bigint, op: string): void {
     if (outPt.value !== expectedValue) {
-      throw new Error(`Synthesizer: ${op}: Output data mismatch`);
+      throw new Error(`Synthesizer: ${op}: Output data mismatch`)
     }
   }
 
   public validateKeccakData(offset: number, length: number, mutDataPt: DataPt): void {
-    const data = this.runState.memory.read(offset, length);
+    const data = this.runState.memory.read(offset, length)
     if (bytesToBigInt(data) !== mutDataPt.value) {
-      throw new Error('Synthesizer: KECCAK256: Data loaded to be hashed mismatch');
+      throw new Error('Synthesizer: KECCAK256: Data loaded to be hashed mismatch')
     }
   }
 }

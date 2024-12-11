@@ -185,8 +185,10 @@ export class ArithmeticOperations {
     const isNegative = (value & (1n << 255n)) !== 0n
     if (isNegative) {
       const mask = ArithmeticOperations.MAX_UINT256 << (256n - shift)
-      return (value >> shift) | mask
+      // Apply the mask to the shifted value and ensure the result is within 256 bits
+      return BigInt.asUintN(256, (value >> shift) | mask)
     }
+    // For non-negative values, simply shift right
     return value >> shift
   }
 
