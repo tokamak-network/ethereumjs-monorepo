@@ -236,7 +236,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      synthesizerArith('MULMOD', [a, b], r, runState)
+      synthesizerArith('MULMOD', [a, b, c], r, runState)
     },
   ],
   // 0x0a: EXP
