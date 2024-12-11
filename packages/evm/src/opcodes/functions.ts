@@ -33,6 +33,12 @@ import { EOFContainer, EOFContainerMode } from '../eof/container.js'
 import { EOFError } from '../eof/errors.js'
 import { EOFBYTES, EOFHASH, isEOF } from '../eof/util.js'
 import { ERROR } from '../exceptions.js'
+import {
+  prepareEXTCodePt,
+  synthesizerArith,
+  synthesizerBlkInf,
+  synthesizerEnvInf,
+} from '../tokamak/core/synthesizer.js'
 import { copyMemoryRegion, simulateMemoryPt } from '../tokamak/pointers/index.js'
 import { DELEGATION_7702_FLAG } from '../types.js'
 
@@ -52,7 +58,6 @@ import {
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
 import type { Common } from '@ethereumjs/common'
-import { prepareEXTCodePt, synthesizerArith, synthesizerBlkInf, synthesizerEnvInf } from '../tokamak/core/synthesizer.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -189,7 +194,15 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(toTwos(r))
 
       // For Synthesizer //
-      synthesizerArith('SMOD', [a, b], r, runState)
+      synthesizerArith(
+        'SMOD',
+        [a, b],
+        // SMOD 연산의 결과를 2의 보수 표현으로 변환하여 EVM의 256비트 부호 없는 정수로 처리
+        // EVM은 모든 값을 부호 없는 256비트 정수로 처리하므로, 음수 결과를 올바르게 변환하기 위해 필요
+        // toTwos(r)를 사용하여 음수 결과를 2의 보수로 변환함으로써, SMOD 연산이 예상대로 작동하도록 보장
+        toTwos(r),
+        runState,
+      )
     },
   ],
   // 0x08: ADDMOD
@@ -534,7 +547,7 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x32,
     function (runState) {
-      runState.stack.push(runState.interpreter.getTxOrigin() )
+      runState.stack.push(runState.interpreter.getTxOrigin())
 
       // For Synthesizer //
       synthesizerEnvInf('ORIGIN', runState)
@@ -643,7 +656,11 @@ export const handlers: Map<number, OpHandler> = new Map([
 
         for (const entry of memoryPtsToCopy) {
           // the lower index, the older data
-          runState.memoryPt.write(Number(memOffset) + entry.memOffset, entry.containerSize, entry.dataPt)
+          runState.memoryPt.write(
+            Number(memOffset) + entry.memOffset,
+            entry.containerSize,
+            entry.dataPt,
+          )
         }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
@@ -678,13 +695,15 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const [memOffsetPt, codeOffsetPt, dataLengthPt] = runState.stackPt.popN(3)
-      if ( memOffsetPt.value !== memOffset ||
+      if (
+        memOffsetPt.value !== memOffset ||
         codeOffsetPt.value !== codeOffset ||
-        dataLengthPt.value !== dataLength ) {
+        dataLengthPt.value !== dataLength
+      ) {
         throw new Error(`Synthesizer: CODECOPY: Input data mismatch`)
       }
-        
-      if (dataLength !== BIGINT_0) { 
+
+      if (dataLength !== BIGINT_0) {
         const data = getDataSlice(runState.interpreter.getCode(), codeOffset, dataLength)
         const dataBigint = bytesToBigInt(data)
         const codeOffsetNum = Number(codeOffset)
@@ -693,7 +712,7 @@ export const handlers: Map<number, OpHandler> = new Map([
           'Code',
           dataBigint,
           codeOffsetNum,
-          Number(dataLength)
+          Number(dataLength),
         )
         runState.memoryPt.write(Number(memOffset), Number(dataLength), dataPt)
       }
@@ -726,7 +745,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       const size = BigInt(code.length)
 
       runState.stack.push(size)
-      
+
       // For Synthesizer //
       synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
     },
@@ -756,10 +775,12 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const [addressPt, memOffsetPt, codeOffsetPt, dataLengthPt] = runState.stackPt.popN(4)
-      if ( addressPt.value !== addressBigInt ||
+      if (
+        addressPt.value !== addressBigInt ||
         memOffsetPt.value !== memOffset ||
         codeOffsetPt.value !== codeOffset ||
-        dataLengthPt.value !== dataLength ) {
+        dataLengthPt.value !== dataLength
+      ) {
         throw new Error(`Synthesizer: EXTCODECOPY: Input data mismatch`)
       }
       if (dataLength !== BIGINT_0) {
@@ -824,7 +845,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
         return
       }
-      
+
       runState.stack.push(BigInt(bytesToHex(account.codeHash)))
 
       // For Synthesizer //
@@ -861,7 +882,7 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x3a,
     function (runState) {
       runState.stack.push(runState.interpreter.getTxGasPrice())
-      
+
       // For Synthesizer //
       synthesizerEnvInf('GASPRICE', runState)
     },
