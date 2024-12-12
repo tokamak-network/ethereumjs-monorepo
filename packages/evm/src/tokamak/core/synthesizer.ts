@@ -50,6 +50,18 @@ export const synthesizerArith = (
     case 'EXP':
       outPts = [runState.synthesizer.placeEXP(inPts)]
       break
+    case 'KECCAK256': {
+      const offsetNum = Number(ins[0])
+      const lengthNum = Number(ins[1])
+      const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, lengthNum)
+      const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
+      const data = runState.memory.read(offsetNum, lengthNum)
+      if (bytesToBigInt(data) !== mutDataPt.value) {
+        throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
+      }
+      outPts = [runState.synthesizer.loadKeccak(mutDataPt, out)]
+      break
+    }
     default:
       outPts = runState.synthesizer.placeArith(op, inPts)
       break
@@ -182,7 +194,7 @@ export async function synthesizerEnvInf(
       break
     }
     case 'BALANCE':
-    case 'EXTCODESIZE': 
+    case 'EXTCODESIZE': {
       // These opcodes have one input and one output
       if (target === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input address`)
@@ -192,9 +204,10 @@ export async function synthesizerEnvInf(
       }
       dataPt = runState.synthesizer.loadEnvInf(target.toString(16), op, runState.stack.peek(1)[0])
       break
-    case 'EXTCODEHASH':
-      // This opcode has one input and one output
-      if ( target === undefined ){
+    }
+    case 'EXTCODEHASH': {
+      // These opcode has one input and one output
+      if (target === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input address`)
       }
       if (target !== runState.stackPt.pop().value) {
@@ -207,6 +220,7 @@ export async function synthesizerEnvInf(
         dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
       }
       break
+    }
     case 'ADDRESS':
     case 'ORIGIN':
     case 'CALLER':
