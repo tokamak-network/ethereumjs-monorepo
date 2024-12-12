@@ -1,4 +1,3 @@
-
 /**
  * @property { number } subcircuitId - 서브서킷의 식별자.
  * @property {number} nWire - 서브서킷의 와이어 수.

@@ -1,4 +1,11 @@
-import { BIGINT_0, BIGINT_1, bigIntToBytes, bytesToBigInt, bytesToHex, setLengthLeft } from '@ethereumjs/util'
+import {
+  BIGINT_0,
+  BIGINT_1,
+  bigIntToBytes,
+  bytesToBigInt,
+  bytesToHex,
+  setLengthLeft,
+} from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EOFBYTES, isEOF } from '../../eof/util.js'
@@ -23,8 +30,8 @@ import {
   SynthesizerValidator,
 } from '../validation/index.js'
 
-import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from '../pointers/index.js'
 import type { RunState } from '../../interpreter.js'
+import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from '../pointers/index.js'
 import type { Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
 
 export const synthesizerArith = (
@@ -214,7 +221,7 @@ export async function synthesizerEnvInf(
         throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
       const codePt = await prepareEXTCodePt(runState, target)
-      if (codePt.value === BIGINT_0){
+      if (codePt.value === BIGINT_0) {
         dataPt = runState.synthesizer.loadAuxin(BIGINT_0)
       } else {
         dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
@@ -267,10 +274,10 @@ type SubcircuitInfoByName = Map<string, SubcircuitInfoByNameEntry>
 export class Synthesizer {
   public placements: Placements
   public auxin: Auxin
-  public envInf: Map<string, {value: bigint, wireIndex: number}>
-  public blkInf: Map<string, {value: bigint, wireIndex: number}>
+  public envInf: Map<string, { value: bigint; wireIndex: number }>
+  public blkInf: Map<string, { value: bigint; wireIndex: number }>
   public storagePt: Map<bigint, DataPt>
-  public logPt: {topics: bigint[], valPt: DataPt}[]
+  public logPt: { topics: bigint[]; valPt: DataPt }[]
   public TStoragePt: Map<string, Map<bigint, DataPt>>
   protected placementIndex: number
   private subcircuitNames
@@ -280,7 +287,7 @@ export class Synthesizer {
     this.placements = new Map()
     this.placements.set(LOAD_PLACEMENT_INDEX, LOAD_PLACEMENT)
     this.placements.set(RETURN_PLACEMENT_INDEX, RETURN_PLACEMENT)
-    this.placements.set(KECCAK_PLACEMENT_INDEX, KECCAK_PLACEMENT)   
+    this.placements.set(KECCAK_PLACEMENT_INDEX, KECCAK_PLACEMENT)
 
     this.auxin = new Map()
     this.envInf = new Map()
@@ -413,13 +420,13 @@ export class Synthesizer {
 
   public loadStorage(codeAddress: string, key: bigint, value: bigint): DataPt {
     let outPt: DataPt
-    if( this.storagePt.has(key) ) {
+    if (this.storagePt.has(key)) {
       outPt = this.storagePt.get(key)!
     } else {
       const inPtRaw: CreateDataPointParams = {
         source: `code: ${codeAddress}`,
-        key: key,
-        value: value,
+        key,
+        value,
         sourceSize: DEFAULT_SOURCE_SIZE,
       }
       const inPt = DataPointFactory.create(inPtRaw)
@@ -435,7 +442,7 @@ export class Synthesizer {
     // 출력 데이터 포인트 생성
     const outPtRaw: CreateDataPointParams = {
       dest: 'Storage',
-      key: key,
+      key,
       wireIndex: outWireIndex,
       value: inPt.value,
       sourceSize: DEFAULT_SOURCE_SIZE,
@@ -447,12 +454,12 @@ export class Synthesizer {
   }
 
   public storeLog(topics: bigint[], inPt: DataPt): void {
-    this.logPt.push({topics: topics, valPt: inPt})
+    this.logPt.push({ topics, valPt: inPt })
     const outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
     // 출력 데이터 포인트 생성
     const outPtRaw: CreateDataPointParams = {
       dest: 'LOG',
-      topics: topics,
+      topics,
       wireIndex: outWireIndex,
       value: inPt.value,
       sourceSize: DEFAULT_SOURCE_SIZE,
@@ -487,13 +494,13 @@ export class Synthesizer {
     return outPt
   }
 
-  public loadKeccak( inPt: DataPt, outValue: bigint, length?: bigint ): DataPt {
+  public loadKeccak(inPt: DataPt, outValue: bigint, length?: bigint): DataPt {
     // 연산 실행
     const value = inPt.value
     const valueInBytes = bigIntToBytes(value)
     const data = setLengthLeft(valueInBytes, Number(length) ?? valueInBytes.length)
     const _outValue = BigInt(bytesToHex(keccak256(data)))
-    if ( _outValue !== outValue ){
+    if (_outValue !== outValue) {
       throw new Error(`Synthesizer: loadKeccak: The Keccak hash may be customized`)
     }
     const outWireIndex = this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts.length
@@ -739,7 +746,13 @@ export class Synthesizer {
     return this.handleBinaryOp(name, inPts)
   }
 
-  public adjustMemoryPts = (dataPts: DataPt[], memoryPts: MemoryPts, srcOffset: number, dstOffset: number, viewLength: number): void => {
+  public adjustMemoryPts = (
+    dataPts: DataPt[],
+    memoryPts: MemoryPts,
+    srcOffset: number,
+    dstOffset: number,
+    viewLength: number,
+  ): void => {
     for (const [index, memoryPt] of memoryPts.entries()) {
       const containerOffset = memoryPt.memOffset
       const containerSize = memoryPt.containerSize
@@ -753,9 +766,9 @@ export class Synthesizer {
 
       const endingGap = containerEndPos - actualEndPos
       let outPts = [dataPts[index]]
-      if (endingGap > 0){
+      if (endingGap > 0) {
         // SHR data
-        outPts = this.placeArith('SHR', [this.loadAuxin(BigInt(endingGap*8)), dataPts[index]])
+        outPts = this.placeArith('SHR', [this.loadAuxin(BigInt(endingGap * 8)), dataPts[index]])
       }
       memoryPt.dataPt = outPts[0]
     }
@@ -782,7 +795,7 @@ export class Synthesizer {
    * @returns {DataPt} 생성된 데이터 포인트.
    */
   private _resolveDataAlias(dataAliasInfos: DataAliasInfos): DataPt {
-    const ADDTargets: {subcircuitID: number, wireID: number}[] = []
+    const ADDTargets: { subcircuitID: number; wireID: number }[] = []
     // 먼저 각각을 shift 후 mask와 AND 해줌
     const initPlacementIndex = this.placementIndex
     for (const info of dataAliasInfos) {
@@ -790,9 +803,12 @@ export class Synthesizer {
       // this method may increases the placementIndex
       this._applyShiftAndMask(info)
       if (prevPlacementIndex !== this.placementIndex) {
-        ADDTargets.push({subcircuitID: this.placementIndex - 1, wireID: 0})
+        ADDTargets.push({ subcircuitID: this.placementIndex - 1, wireID: 0 })
       } else {
-        ADDTargets.push({subcircuitID: Number(info.dataPt.source), wireID: info.dataPt.wireIndex!})
+        ADDTargets.push({
+          subcircuitID: Number(info.dataPt.source),
+          wireID: info.dataPt.wireIndex!,
+        })
       }
     }
 
@@ -887,7 +903,7 @@ export class Synthesizer {
    *
    * @param {{subcircuitID: number, wireID: number}[]} addTargets - OR 연산 대상 인덱스 배열.
    */
-  private _addAndPlace(addTargets: {subcircuitID: number, wireID: number}[]): void {
+  private _addAndPlace(addTargets: { subcircuitID: number; wireID: number }[]): void {
     let inPts: DataPt[] = [
       this.placements.get(addTargets[0].subcircuitID)!.outPts[addTargets[0].wireID],
       this.placements.get(addTargets[1].subcircuitID)!.outPts[addTargets[1].wireID],
@@ -907,9 +923,11 @@ export class Synthesizer {
     if (!this.subcircuitNames.includes(name)) {
       throw new Error(`Subcircuit name ${name} is not defined`)
     }
-    for (const inPt of inPts){
-      if( typeof inPt.source !== 'number' ){
-        throw new Error(`Synthesizer: Placing a subcircuit: Input wires to a new placement must be connected to the output wires of other placements.`)
+    for (const inPt of inPts) {
+      if (typeof inPt.source !== 'number') {
+        throw new Error(
+          `Synthesizer: Placing a subcircuit: Input wires to a new placement must be connected to the output wires of other placements.`,
+        )
       }
     }
     addPlacement(this.placements, {
