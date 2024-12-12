@@ -35,7 +35,7 @@ import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from '../pointers/
 import type { Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
 
 export const synthesizerArith = (
-  op: ArithmeticOperator,
+  op: ArithmeticOperator | 'KECCAK256',
   ins: bigint[],
   out: bigint,
   runState: RunState,
@@ -47,6 +47,11 @@ export const synthesizerArith = (
   }
   for (let i = 0; i < ins.length; i++) {
     if (inPts[i].value !== ins[i]) {
+      const stackValue = BigInt(inPts[i].value)
+      const inputValue = BigInt(ins[i])
+      console.log(`Value mismatch at index ${i}:`)
+      console.log(`Stack value: ${stackValue}`)
+      console.log(`Input value: ${inputValue}`)
       throw new Error(`Synthesizer: ${op}: Input data mismatch`)
     }
   }

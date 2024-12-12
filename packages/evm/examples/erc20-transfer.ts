@@ -17,15 +17,15 @@ const main = async () => {
   const sender = new Address(hexToBytes('0x2000000000000000000000000000000000000000'))
   const recipient = new Address(hexToBytes('0x3000000000000000000000000000000000000000'))
 
-  // Deploy contract code
-  await evm.stateManager.putCode(contractAddr, contractCode)
+  //   // Deploy contract code
+  //   await evm.stateManager.putCode(contractAddr, contractCode)
 
-  // Set initial balances - using a larger value for testing
-  await evm.stateManager.putStorage(
-    contractAddr,
-    hexToBytes('0x0000000000000000000000000000000000000000000000000000000000000004'), // total supply slot
-    new Uint8Array([100]), // initial supply
-  )
+  //   // Set initial balances - using a larger value for testing
+  //   await evm.stateManager.putStorage(
+  //     contractAddr,
+  //     hexToBytes('0x0000000000000000000000000000000000000000000000000000000000000004'), // total supply slot
+  //     new Uint8Array([100]), // initial supply
+  //   )
 
   await evm.stateManager.putStorage(
     contractAddr,

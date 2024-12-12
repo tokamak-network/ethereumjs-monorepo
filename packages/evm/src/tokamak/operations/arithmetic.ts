@@ -29,6 +29,7 @@ export type ArithmeticOperator =
   | 'SIGNEXTEND'
   | 'DecToBit'
   | 'SubEXP'
+
 export type ArithmeticFunction = (...args: bigint[]) => bigint | bigint[]
 
 /**
