@@ -521,17 +521,29 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       const offsetNum = Number(offset)
       const lengthNum = Number(length)
-      const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, lengthNum)
-      let dataPt
-      if (dataAliasInfos.length > 0){
-        dataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
-      } else {
-        dataPt = runState.synthesizer.loadAuxin(BIGINT_0)
+      let nChunks = 1
+      if (lengthNum > 32){
+        nChunks = Math.ceil(lengthNum / 32)
       }
-      if ( bytesToBigInt(data) !== dataPt.value ) {
+      let chunkDataPts = []
+      let dataRecovered = BIGINT_0
+      let lengthLeft = lengthNum
+      for ( let i =0; i<nChunks; i++){
+        const _offset = offsetNum + 32 * i
+        const _length = (lengthLeft > 32) ? 32 : lengthLeft
+        lengthLeft -= _length
+        const dataAliasInfos = runState.memoryPt.getDataAlias(_offset, _length)
+        if (dataAliasInfos.length > 0){
+          chunkDataPts[i] = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
+        } else {
+          chunkDataPts[i] = runState.synthesizer.loadAuxin(BIGINT_0)
+        }
+        dataRecovered += chunkDataPts[i].value << BigInt((nChunks - i - 1)*32*8)
+      }
+      if ( bytesToBigInt(data) !== dataRecovered ) {
         throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
       }
-      runState.stackPt.push(runState.synthesizer.loadKeccak(dataPt, r, length))
+      runState.stackPt.push(runState.synthesizer.loadKeccak(chunkDataPts, r, length))
       if (runState.stack.peek(1)[0] !== runState.stackPt.peek(1)[0].value){
         throw new Error(`Synthesizer: KECCAK256: Output data mismatch`)
       }
@@ -1448,6 +1460,10 @@ export const handlers: Map<number, OpHandler> = new Map([
         1,
       )
       runState.stackPt.push(dataPt)
+
+      if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
+        throw new Error(`Synthesizer: PUSH0: Output data mismatch`)
+      }
     },
   ],
   // 0x60: PUSH
@@ -1495,6 +1511,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         numToPush,
       )
       runState.stackPt.push(dataPt)
+      if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
+        throw new Error(`Synthesizer: PUSH${numToPush}: Output data mismatch`)
+      }
     },
   ],
   // 0x80: DUP

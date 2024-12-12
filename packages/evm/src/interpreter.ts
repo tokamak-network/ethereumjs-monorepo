@@ -436,6 +436,7 @@ export class Interpreter {
       } else {
         opFn.apply(null, [this._runState, this.common])
       }
+
     } finally {
       if (this.profilerOpts?.enabled === true) {
         this.performanceLogger.stopTimer(
