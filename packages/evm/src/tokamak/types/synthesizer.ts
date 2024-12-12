@@ -44,10 +44,13 @@ export type SubcircuitId = {
  * @property {bigint} value - 데이터 값.
  */
 export interface CreateDataPointParams {
-  source: string | number
+  source?: string | number
   type?: string
-  wireIndex?: number
+  key?: bigint
   offset?: number
+  wireIndex?: number
+  dest?: string
+  topics?: bigint[]
   sourceSize: number
   value: bigint
 }

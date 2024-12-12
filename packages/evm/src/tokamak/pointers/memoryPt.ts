@@ -114,40 +114,34 @@ export const simulateMemoryPt = (memoryPts: MemoryPts): MemoryPt => {
   return simMemPt
 }
 
-const adjustMemoryPts = (dataPts: DataPt[], memoryPts: MemoryPts, offset: number): void => {
-  for (const [index, memoryPt] of memoryPts.entries()) {
-    const relativeOffset = memoryPt.memOffset - offset
-    memoryPt.memOffset = relativeOffset
-    memoryPt.dataPt = dataPts[index]
-  }
-}
-
 export const copyMemoryRegion = (
   runState: RunState,
-  offset: bigint,
-  length: bigint,
+  srcOffset: bigint,
+  length: bigint,  
   fromMemoryPts?: MemoryPts,
+  dstOffset?: bigint,
 ): MemoryPts => {
-  const offsetNum = Number(offset)
+  const srcOffsetNum = Number(srcOffset)
+  const dstOffsetNum = Number(dstOffset ?? 0)
   const lengthNum = Number(length)
   let toMemoryPts: MemoryPts
   if (fromMemoryPts === undefined) {
-    toMemoryPts = runState.memoryPt.read(offsetNum, lengthNum)
+    toMemoryPts = runState.memoryPt.read(srcOffsetNum, lengthNum)
   } else {
     const simFromMemoryPt = simulateMemoryPt(fromMemoryPts)
-    toMemoryPts = simFromMemoryPt.read(offsetNum, lengthNum)
+    toMemoryPts = simFromMemoryPt.read(srcOffsetNum, lengthNum)
   }
   const zeroMemoryPtEntry: MemoryPtEntry = {
-    memOffset: offsetNum,
+    memOffset: dstOffsetNum,
     containerSize: lengthNum,
     dataPt: runState.synthesizer.loadAuxin(BIGINT_0),
   }
   if (toMemoryPts.length > 0) {
     const simToMemoryPt = simulateMemoryPt(toMemoryPts)
-    const dataAliasInfos = simToMemoryPt.getDataAlias(offsetNum, lengthNum)
+    const dataAliasInfos = simToMemoryPt.getDataAlias(srcOffsetNum, lengthNum)
     if (dataAliasInfos.length > 0) {
       const resolvedDataPts = runState.synthesizer.placeMemoryToMemory(dataAliasInfos)
-      adjustMemoryPts(resolvedDataPts, toMemoryPts, offsetNum)
+      runState.synthesizer.adjustMemoryPts(resolvedDataPts, toMemoryPts, srcOffsetNum, dstOffsetNum, lengthNum)
     } else {
       toMemoryPts.push(zeroMemoryPtEntry)
     }
@@ -333,15 +327,14 @@ export class MemoryPt {
     let i = 0
     for (const timeStamp of sortedTimeStamps) {
       const containerOffset = this._storePt.get(timeStamp)!.memOffset
-      const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
+      const containerEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
       // Find the offset where nonzero value starts
-      const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
       const sortedTimeStamps_firsts = sortedTimeStamps.slice(0, i)
       // If data is in the range
-      if (storedEndOffset >= offset && storedOffset <= endOffset) {
-        const overlapStart = Math.max(offset, storedOffset)
-        const overlapEnd = Math.min(endOffset, storedEndOffset)
-        const thisDataOriginalRange = createRangeSet(storedOffset, storedEndOffset)
+      if (containerEndOffset >= offset && containerOffset <= endOffset) {
+        const overlapStart = Math.max(offset, containerOffset)
+        const overlapEnd = Math.min(endOffset, containerEndOffset)
+        const thisDataOriginalRange = createRangeSet(containerOffset, containerEndOffset)
         const thisDataValidRange = createRangeSet(overlapStart, overlapEnd)
 
         dataFragments.set(timeStamp, {
@@ -370,6 +363,52 @@ export class MemoryPt {
     }
     return dataFragments
   }
+
+  // private _viewMemoryConflict(offset: number, size: number): _DataFragments {
+  //   const dataFragments: _DataFragments = new Map()
+  //   const endOffset = offset + size - 1
+  //   const sortedTimeStamps = Array.from(this._storePt.keys()).sort((a, b) => a - b)
+
+  //   let i = 0
+  //   for (const timeStamp of sortedTimeStamps) {
+  //     const containerOffset = this._storePt.get(timeStamp)!.memOffset
+  //     const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
+  //     // Find the offset where nonzero value starts
+  //     const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
+  //     const sortedTimeStamps_firsts = sortedTimeStamps.slice(0, i)
+  //     // If data is in the range
+  //     if (storedEndOffset >= offset && storedOffset <= endOffset) {
+  //       const overlapStart = Math.max(offset, storedOffset)
+  //       const overlapEnd = Math.min(endOffset, storedEndOffset)
+  //       const thisDataOriginalRange = createRangeSet(storedOffset, storedEndOffset)
+  //       const thisDataValidRange = createRangeSet(overlapStart, overlapEnd)
+
+  //       dataFragments.set(timeStamp, {
+  //         originalRange: thisDataOriginalRange,
+  //         validRange: thisDataValidRange,
+  //       })
+  //       // Update previous data overlap ranges
+  //       for (const _timeStamp of sortedTimeStamps_firsts) {
+  //         if (dataFragments.has(_timeStamp)) {
+  //           const overwrittenRange = setMinus(
+  //             dataFragments.get(_timeStamp)!.validRange,
+  //             dataFragments.get(timeStamp)!.validRange,
+  //           )
+  //           if (overwrittenRange.size <= 0) {
+  //             dataFragments.delete(_timeStamp)
+  //           } else {
+  //             dataFragments.set(_timeStamp, {
+  //               originalRange: dataFragments.get(_timeStamp)!.originalRange,
+  //               validRange: overwrittenRange,
+  //             })
+  //           }
+  //         }
+  //       }
+  //     }
+  //     i++
+  //   }
+  //   return dataFragments
+  // }
 
   private _generateMasker(offset: number, size: number, validRange: Set<number>): string {
     const targetRange = createRangeSet(offset, offset + size - 1)
