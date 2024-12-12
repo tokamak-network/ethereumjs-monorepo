@@ -44,8 +44,6 @@ const main = async () => {
         recipient.toString().slice(2).padStart(64, '0') +
         transferAmount.toString(16).padStart(64, '0'),
     ),
-    value: BigInt(0),
-    gasLimit: BigInt(0xffffff),
   })
   // ... rest of code
 

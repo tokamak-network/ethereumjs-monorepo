@@ -32,8 +32,8 @@ describe('ERC20 Transfer', () => {
       code: contractCode,
       data: hexToBytes(
         '0xa9059cbb' +
-          '0000000000000000000000001ab4973a48dc892cd9971ece8e01dcc7688f8f23' +
-          '0000000000000000000000000000000000000000000000aa44a0136f2c1d61c0',
+          recipient.toString().slice(2).padStart(64, '0') +
+          transferAmount.toString(16).padStart(64, '0'),
       ),
     })
 
