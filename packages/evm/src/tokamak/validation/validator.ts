@@ -3,7 +3,7 @@ import { bytesToBigInt } from '../../../../util/dist/cjs/index.js'
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
 import type { RunState } from '../../interpreter.js'
-import type { DataPt } from '../types/index.js'
+import type { ArithmeticOperator, DataPt } from '../types/index.js'
 
 /**
  * Synthesizer 관련 유효성 검사를 담당하는 클래스
@@ -33,6 +33,47 @@ export class SynthesizerValidator {
   static validateSubcircuitName(name: string, validNames: string[]): void {
     if (!validNames.includes(name)) {
       throw new UndefinedSubcircuitError(name)
+    }
+  }
+
+  /**
+   * 주어진 opcode가 구현되어 있는지 검증합니다.
+   * @param opcode 검증할 opcode
+   * @throws {Error} 구현되지 않은 opcode인 경우
+   */
+  public static validateImplementedOpcode(opcode: string): void {
+    const implementedOpcodes: ArithmeticOperator[] = [
+      'ADD',
+      'MUL',
+      'SUB',
+      'DIV',
+      'SDIV',
+      'MOD',
+      'SMOD',
+      'ADDMOD',
+      'MULMOD',
+      'EXP',
+      'SIGNEXTEND',
+      'LT',
+      'GT',
+      'SLT',
+      'SGT',
+      'EQ',
+      'ISZERO',
+      'AND',
+      'OR',
+      'XOR',
+      'NOT',
+      'BYTE',
+      'SHL',
+      'SHR',
+      'SAR',
+      'DecToBit',
+      'SubEXP',
+    ] as const
+
+    if (!implementedOpcodes.includes(opcode as ArithmeticOperator)) {
+      throw new Error(`Synthesizer: Opcode '${opcode}' is not implemented`)
     }
   }
 

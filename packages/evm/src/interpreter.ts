@@ -25,6 +25,7 @@ import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
 import { MemoryPt } from './tokamak/pointers/memoryPt.js'
 import { StackPt } from './tokamak/pointers/stackPt.js'
+import { arrToStr, mapToStr } from './tokamak/utils/index.js'
 
 import type { EVM } from './evm.js'
 import type { Journal } from './journal.js'
@@ -45,7 +46,6 @@ import type {
   VerkleAccessWitnessInterface,
 } from '@ethereumjs/common'
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
-import { arrToStr, mapToStr } from './tokamak/utils/index.js'
 
 const debugGas = debugDefault('evm:gas')
 
@@ -436,6 +436,60 @@ export class Interpreter {
       } else {
         opFn.apply(null, [this._runState, this.common])
       }
+      // if (
+      //   BigInt(this._runState.stackPt.peek(1)[0].value) !== BigInt(this._runState.stack.peek(1)[0])
+      // ) {
+      //   throw new Error(
+      //     `synthesizer: Stack item mismatch at ${this._runState.programCounter} with opcode ${opInfo.name}`,
+      //   )
+      // }
+
+      // try {
+      //   const stackPtItem = this._runState.stackPt.peek(1)[0]
+      //   const stackItem = this._runState.stack.peek(1)[0]
+
+      //   // 디버그 정보 출력
+      //   console.log('Stack comparison:', {
+      //     stackPtItem,
+      //     stackItem,
+      //     pc: this._runState.programCounter,
+      //     opcode: opInfo.name,
+      //   })
+
+      //   // 값 비교 전에 타입 체크 및 변환
+      //   let stackPtValue: bigint
+      //   let stackValue: bigint
+
+      //   // stackPt 값 처리
+      //   if (typeof stackPtItem.value === 'string' && stackPtItem.value.startsWith('0x')) {
+      //     stackPtValue = stackPtItem.value === '0x' ? BigInt(0) : BigInt(stackPtItem.value)
+      //   } else {
+      //     stackPtValue = BigInt(stackPtItem.value)
+      //   }
+
+      //   // stack 값 처리
+      //   if (typeof stackItem === 'string' && stackItem.startsWith('0x')) {
+      //     stackValue = stackItem === '0x' ? BigInt(0) : BigInt(stackItem)
+      //   } else {
+      //     stackValue = BigInt(stackItem)
+      //   }
+
+      //   if (stackPtValue !== stackValue) {
+      //     throw new Error(
+      //       `synthesizer: Stack item mismatch at ${this._runState.programCounter} with opcode ${opInfo.name}\n` +
+      //         `StackPt: ${stackPtValue} (${typeof stackPtItem.value})\n` +
+      //         `Stack: ${stackValue} (${typeof stackItem})`,
+      //     )
+      //   }
+      // } catch (error) {
+      //   console.error('Stack comparison details:', {
+      //     stackPtItem: this._runState.stackPt.peek(1)[0],
+      //     stackItem: this._runState.stack.peek(1)[0],
+      //     pc: this._runState.programCounter,
+      //     opcode: opInfo.name,
+      //   })
+      //   throw error
+      // }
     } finally {
       if (this.profilerOpts?.enabled === true) {
         this.performanceLogger.stopTimer(

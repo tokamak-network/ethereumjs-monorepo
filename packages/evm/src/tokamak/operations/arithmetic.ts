@@ -1,37 +1,10 @@
 import { convertToSigned } from '../utils/index.js'
 
-// 연산자 타입 정의
-export type ArithmeticOperator =
-  | 'ADD'
-  | 'MUL'
-  | 'SUB'
-  | 'DIV'
-  | 'SDIV'
-  | 'MOD'
-  | 'SMOD'
-  | 'ADDMOD'
-  | 'MULMOD'
-  | 'EXP'
-  | 'LT'
-  | 'GT'
-  | 'SLT'
-  | 'SGT'
-  | 'EQ'
-  | 'ISZERO'
-  | 'AND'
-  | 'OR'
-  | 'XOR'
-  | 'NOT'
-  | 'SHL'
-  | 'SHR'
-  | 'SAR'
-  | 'BYTE'
-  | 'SIGNEXTEND'
-  | 'DecToBit'
-  | 'SubEXP'
+import type { ArithmeticOperator } from '../types/index.js'
 
 export type ArithmeticFunction = (...args: bigint[]) => bigint | bigint[]
 
+/**
 /**
  * Synthesizer 산술 연산을 처리하는 유틸리티 클래스
  */

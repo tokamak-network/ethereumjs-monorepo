@@ -748,6 +748,7 @@ export class Synthesizer {
    */
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     SynthesizerValidator.validateSubcircuitName(name, this.subcircuitNames)
+    SynthesizerValidator.validateImplementedOpcode(name)
     return this.handleBinaryOp(name, inPts)
   }
 

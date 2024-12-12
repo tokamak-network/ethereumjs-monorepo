@@ -10,49 +10,54 @@ describe('ERC20 Transfer', () => {
   )
 
   it('should handle ERC20 transfer correctly', async () => {
-    const evm = await createEVM()
+    try {
+      const evm = await createEVM()
 
-    // Setup accounts
-    const contractAddr = new Address(hexToBytes('0x1000000000000000000000000000000000000000'))
-    const sender = new Address(hexToBytes('0x2000000000000000000000000000000000000000'))
-    const recipient = new Address(hexToBytes('0x3000000000000000000000000000000000000000'))
+      // Setup accounts
+      const contractAddr = new Address(hexToBytes('0x1000000000000000000000000000000000000000'))
+      const sender = new Address(hexToBytes('0x2000000000000000000000000000000000000000'))
+      const recipient = new Address(hexToBytes('0x3000000000000000000000000000000000000000'))
 
-    // Set initial balance for sender
-    await evm.stateManager.putStorage(
-      contractAddr,
-      hexToBytes('0x' + '5'.padStart(64, '0')), // balances mapping slot
-      new Uint8Array([100]), // sender's balance
-    )
+      // Set initial balance for sender
+      await evm.stateManager.putStorage(
+        contractAddr,
+        hexToBytes('0x' + '5'.padStart(64, '0')), // balances mapping slot
+        new Uint8Array([100]), // sender's balance
+      )
 
-    // Execute transfer
-    const transferAmount = BigInt(100)
-    const res = await evm.runCode({
-      caller: sender,
-      to: contractAddr,
-      code: contractCode,
-      data: hexToBytes(
-        '0xa9059cbb' +
-          recipient.toString().slice(2).padStart(64, '0') +
-          transferAmount.toString(16).padStart(64, '0'),
-      ),
-    })
+      // Execute transfer
+      const transferAmount = BigInt(100)
+      const res = await evm.runCode({
+        caller: sender,
+        to: contractAddr,
+        code: contractCode,
+        data: hexToBytes(
+          '0xa9059cbb' +
+            '000000000000000000000000a9b0247b22c54e02a41be321f1b50f95901aa40f' +
+            '00000000000000000000000000000000000000000000274efe1cc8398b3c0000',
+        ),
+      })
 
-    // Check balances after transfer
-    const senderBalance = await evm.stateManager.getStorage(
-      contractAddr,
-      hexToBytes('0x' + sender.toString().slice(2).padStart(64, '0')),
-    )
-    const recipientBalance = await evm.stateManager.getStorage(
-      contractAddr,
-      hexToBytes('0x' + recipient.toString().slice(2).padStart(64, '0')),
-    )
+      // Check balances after transfer
+      const senderBalance = await evm.stateManager.getStorage(
+        contractAddr,
+        hexToBytes('0x' + sender.toString().slice(2).padStart(64, '0')),
+      )
+      const recipientBalance = await evm.stateManager.getStorage(
+        contractAddr,
+        hexToBytes('0x' + recipient.toString().slice(2).padStart(64, '0')),
+      )
 
-    // Log results
-    console.log('Sender Balance:', BigInt('0x' + senderBalance.toString('hex')))
-    console.log('Recipient Balance:', BigInt('0x' + recipientBalance.toString('hex')))
-    console.log(
-      'Circuit Placements:',
-      JSON.stringify(res.runState?.synthesizer.placements, null, 2),
-    )
+      // Log results
+      console.log('Sender Balance:', BigInt('0x' + senderBalance.toString('hex')))
+      console.log('Recipient Balance:', BigInt('0x' + recipientBalance.toString('hex')))
+      console.log(
+        'Circuit Placements:',
+        JSON.stringify(res.runState?.synthesizer.placements, null, 2),
+      )
+    } catch (error) {
+      console.error('Error in stack comparison:', error)
+      throw error
+    }
   })
 })
