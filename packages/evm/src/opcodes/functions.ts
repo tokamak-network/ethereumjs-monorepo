@@ -2318,7 +2318,7 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // for debugging
       const simMemoryPt = simulateMemoryPt(returnMemoryPts)
-      const _returnData = simMemoryPt.viewMemory(Number(offset), Number(length))
+      const _returnData = simMemoryPt.viewMemory(0, Number(length))
       if (!equalsBytes(_returnData, returnData)) {
         throw new Error(`Synthesizer: RETURN: Output data mismatch`)
       }
