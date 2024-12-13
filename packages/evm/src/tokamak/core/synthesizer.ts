@@ -186,11 +186,6 @@ export async function synthesizerEnvInf(
           i,
         )
       }
-      runState.stackPt.push(dataPt)
-      if (runState.stack.peek(1)[0] !== runState.stackPt.peek(1)[0].value) {
-        throw new Error(`Synthesizer: ${op}: Output data mismatch`)
-      }
-
       break
     }
     case 'BALANCE':
@@ -217,7 +212,7 @@ export async function synthesizerEnvInf(
       if (codePt.value === BIGINT_0){
         dataPt = runState.synthesizer.loadAuxin(BIGINT_0)
       } else {
-        dataPt = runState.synthesizer.loadKeccak(codePt, runState.stack.peek(1)[0])
+        dataPt = runState.synthesizer.loadKeccak([codePt], runState.stack.peek(1)[0])
       }
       break
     }
@@ -487,27 +482,36 @@ export class Synthesizer {
     return outPt
   }
 
-  public loadKeccak( inPt: DataPt, outValue: bigint, length?: bigint ): DataPt {
+  public loadKeccak( inPts: DataPt[], outValue: bigint, length?: bigint ): DataPt {
     // 연산 실행
-    const value = inPt.value
+    const nChunks = inPts.length
+    let value = BIGINT_0
+    for (let i=0; i<nChunks; i++){
+      value += inPts[i].value << BigInt((nChunks - i - 1)*32*8)
+    }
     const valueInBytes = bigIntToBytes(value)
     const data = setLengthLeft(valueInBytes, Number(length) ?? valueInBytes.length)
     const _outValue = BigInt(bytesToHex(keccak256(data)))
     if ( _outValue !== outValue ){
       throw new Error(`Synthesizer: loadKeccak: The Keccak hash may be customized`)
     }
+    const inWireIndex = this.placements.get(KECCAK_PLACEMENT_INDEX)!.inPts.length
+    const pairedInputWireIndices = Array.from({ length: nChunks}, (_,i) => inWireIndex + i)
     const outWireIndex = this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts.length
     // 출력 데이터 포인트 생성
     const outPtRaw: CreateDataPointParams = {
       source: KECCAK_PLACEMENT_INDEX,
       wireIndex: outWireIndex,
+      pairedInputWireIndices: pairedInputWireIndices,
       value: outValue,
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const outPt = DataPointFactory.create(outPtRaw)
 
     // keccakBuffer 서브서킷에 입출력 추가
-    this.placements.get(KECCAK_PLACEMENT_INDEX)!.inPts.push(inPt)
+    for (let i=0; i<nChunks;i++){
+      this.placements.get(KECCAK_PLACEMENT_INDEX)!.inPts[pairedInputWireIndices[i]] = inPts[i]
+    }
     this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts.push(outPt)
 
     return this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts[outWireIndex]

@@ -1,3 +1,4 @@
+// DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
 // import { Account } from '@ethereumjs/account'
 import { Account, Address, hexToBytes } from '@ethereumjs/util'
 
@@ -17,15 +18,15 @@ const main = async () => {
   const sender = new Address(hexToBytes('0x2000000000000000000000000000000000000000'))
   const recipient = new Address(hexToBytes('0x3000000000000000000000000000000000000000'))
 
-  // Deploy contract code
-  await evm.stateManager.putCode(contractAddr, contractCode)
+  //   // Deploy contract code
+  //   await evm.stateManager.putCode(contractAddr, contractCode)
 
-  // Set initial balances - using a larger value for testing
-  await evm.stateManager.putStorage(
-    contractAddr,
-    hexToBytes('0x0000000000000000000000000000000000000000000000000000000000000004'), // total supply slot
-    new Uint8Array([100]), // initial supply
-  )
+  //   // Set initial balances - using a larger value for testing
+  //   await evm.stateManager.putStorage(
+  //     contractAddr,
+  //     hexToBytes('0x0000000000000000000000000000000000000000000000000000000000000004'), // total supply slot
+  //     new Uint8Array([100]), // initial supply
+  //   )
 
   await evm.stateManager.putStorage(
     contractAddr,
@@ -44,8 +45,6 @@ const main = async () => {
         recipient.toString().slice(2).padStart(64, '0') +
         transferAmount.toString(16).padStart(64, '0'),
     ),
-    value: BigInt(0),
-    gasLimit: BigInt(0xffffff),
   })
   // ... rest of code
 
@@ -60,8 +59,8 @@ const main = async () => {
     hexToBytes('0x' + recipient.toString().slice(2).padStart(64, '0')),
   )
 
-  console.log('Sender Balance:', BigInt('0x' + senderBalance.toString('hex')))
-  console.log('Recipient Balance:', BigInt('0x' + recipientBalance.toString('hex')))
+  // console.log('Sender Balance:', BigInt('0x' + senderBalance.toString('hex')))
+  // console.log('Recipient Balance:', BigInt('0x' + recipientBalance.toString('hex')))
   console.log('\n=== Circuit Placements ===')
   console.log(JSON.stringify(res.runState?.synthesizer.placements, null, 2))
 }
