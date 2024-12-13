@@ -71,7 +71,7 @@ export const synthesizerArith = (
       if (bytesToBigInt(data) !== mutDataPt.value) {
         throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
       }
-      outPts = [runState.synthesizer.loadKeccak(mutDataPt, out)]
+      outPts = [runState.synthesizer.loadKeccak([mutDataPt], out)]
       break
     }
     default:
