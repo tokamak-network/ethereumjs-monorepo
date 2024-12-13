@@ -1,3 +1,4 @@
+// DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
 // import { Account } from '@ethereumjs/account'
 import { Account, Address, hexToBytes } from '@ethereumjs/util'
 
@@ -58,8 +59,8 @@ const main = async () => {
     hexToBytes('0x' + recipient.toString().slice(2).padStart(64, '0')),
   )
 
-  console.log('Sender Balance:', BigInt('0x' + senderBalance.toString('hex')))
-  console.log('Recipient Balance:', BigInt('0x' + recipientBalance.toString('hex')))
+  // console.log('Sender Balance:', BigInt('0x' + senderBalance.toString('hex')))
+  // console.log('Recipient Balance:', BigInt('0x' + recipientBalance.toString('hex')))
   console.log('\n=== Circuit Placements ===')
   console.log(JSON.stringify(res.runState?.synthesizer.placements, null, 2))
 }

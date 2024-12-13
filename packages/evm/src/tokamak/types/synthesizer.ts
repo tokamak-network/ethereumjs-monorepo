@@ -48,6 +48,7 @@ export interface CreateDataPointParams {
   key?: bigint
   offset?: number
   wireIndex?: number
+  pairedInputWireIndices?: number[]
   dest?: string
   topics?: bigint[]
   sourceSize: number
