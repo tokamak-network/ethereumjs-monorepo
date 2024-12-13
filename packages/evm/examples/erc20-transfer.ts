@@ -1,5 +1,7 @@
 // DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
 // import { Account } from '@ethereumjs/account'
+// DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
+// import { Account } from '@ethereumjs/account'
 import { Account, Address, hexToBytes } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
