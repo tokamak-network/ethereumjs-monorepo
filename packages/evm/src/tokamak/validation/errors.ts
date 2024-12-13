@@ -45,3 +45,10 @@ export class OperationError extends SynthesizerError {
     super(`Operation ${operation} failed: ${message}`)
   }
 }
+
+export class SynthesizerOperationError extends SynthesizerError {
+  constructor(operation: string, reason: string) {
+    super(`Synthesizer: ${operation}: ${reason}`)
+    this.name = 'SynthesizerOperationError'
+  }
+}

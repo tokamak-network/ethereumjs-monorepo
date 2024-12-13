@@ -25,6 +25,7 @@ import { trap } from './opcodes/index.js'
 import { Stack } from './stack.js'
 import { MemoryPt } from './tokamak/pointers/memoryPt.js'
 import { StackPt } from './tokamak/pointers/stackPt.js'
+import { arrToStr, mapToStr } from './tokamak/utils/index.js'
 
 import type { EVM } from './evm.js'
 import type { Journal } from './journal.js'
@@ -45,7 +46,6 @@ import type {
   VerkleAccessWitnessInterface,
 } from '@ethereumjs/common'
 import type { Address, PrefixedHexString } from '@ethereumjs/util'
-import { arrToStr, mapToStr } from './tokamak/utils/index.js'
 
 const debugGas = debugDefault('evm:gas')
 

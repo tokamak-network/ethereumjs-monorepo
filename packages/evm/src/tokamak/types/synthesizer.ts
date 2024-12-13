@@ -1,4 +1,3 @@
-
 /**
  * @property { number } subcircuitId - 서브서킷의 식별자.
  * @property {number} nWire - 서브서킷의 와이어 수.
@@ -49,6 +48,7 @@ export interface CreateDataPointParams {
   key?: bigint
   offset?: number
   wireIndex?: number
+  pairedInputWireIndices?: number[]
   dest?: string
   topics?: bigint[]
   sourceSize: number

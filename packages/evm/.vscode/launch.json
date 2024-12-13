@@ -1,20 +1,20 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-      {
-        "type": "node",
-        "request": "launch",
-        "name": "Launch with tsx",
-        "runtimeExecutable": "tsx",
-        "program": "${workspaceFolder}/examples/EnvBlockKeccak.ts",
-        "args": [],
-        "cwd": "${workspaceFolder}",
-        "skipFiles": ["<node_internals>/**"],
-        // // for debug mode only
-        // "console": "integratedTerminal", // 통합 터미널에서 실행
-        // "env": {
-        //   "DEBUG": "ethjs,evm:*,evm:*:*" // DEBUG 환경 변수 설정
-        // },
-      }
-    ]
-  }
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch with tsx",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/erc20-transfer.ts",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"]
+      // // for debug mode only
+      // "console": "integratedTerminal", // 통합 터미널에서 실행
+      // "env": {
+      //   "DEBUG": "ethjs,evm:*,evm:*:*" // DEBUG 환경 변수 설정
+      // },
+    }
+  ]
+}

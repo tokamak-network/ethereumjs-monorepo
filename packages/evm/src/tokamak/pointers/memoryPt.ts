@@ -117,7 +117,7 @@ export const simulateMemoryPt = (memoryPts: MemoryPts): MemoryPt => {
 export const copyMemoryRegion = (
   runState: RunState,
   srcOffset: bigint,
-  length: bigint,  
+  length: bigint,
   fromMemoryPts?: MemoryPts,
   dstOffset?: bigint,
 ): MemoryPts => {
@@ -141,7 +141,13 @@ export const copyMemoryRegion = (
     const dataAliasInfos = simToMemoryPt.getDataAlias(srcOffsetNum, lengthNum)
     if (dataAliasInfos.length > 0) {
       const resolvedDataPts = runState.synthesizer.placeMemoryToMemory(dataAliasInfos)
-      runState.synthesizer.adjustMemoryPts(resolvedDataPts, toMemoryPts, srcOffsetNum, dstOffsetNum, lengthNum)
+      runState.synthesizer.adjustMemoryPts(
+        resolvedDataPts,
+        toMemoryPts,
+        srcOffsetNum,
+        dstOffsetNum,
+        lengthNum,
+      )
     } else {
       toMemoryPts.push(zeroMemoryPtEntry)
     }

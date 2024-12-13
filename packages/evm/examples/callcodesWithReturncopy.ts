@@ -5,10 +5,10 @@ import { Account, createAddressFromPrivateKey, hexToBytes } from '@ethereumjs/ut
 
 import { createEVM } from '../src/constructors.js'
 import { NobleBN254 } from '../src/precompiles/index.js'
+import { mapToStr } from '../src/tokamak/utils/index.js'
 import { EVMMockBlockchain } from '../src/types.js'
 
 import type { EVMOpts } from '../src/index.js'
-import { mapToStr } from '../src/tokamak/utils/index.js'
 
 const main = async () => {
   const opts = {} as EVMOpts

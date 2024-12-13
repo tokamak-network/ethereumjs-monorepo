@@ -1,7 +1,9 @@
+import { bytesToBigInt } from '../../../../util/dist/cjs/index.js'
+
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
-import type { DataPt } from '../types/index.js'
-
+import type { RunState } from '../../interpreter.js'
+import type { ArithmeticOperator, DataPt } from '../types/index.js'
 
 /**
  * Synthesizer 관련 유효성 검사를 담당하는 클래스
@@ -31,6 +33,47 @@ export class SynthesizerValidator {
   static validateSubcircuitName(name: string, validNames: string[]): void {
     if (!validNames.includes(name)) {
       throw new UndefinedSubcircuitError(name)
+    }
+  }
+
+  /**
+   * 주어진 opcode가 구현되어 있는지 검증합니다.
+   * @param opcode 검증할 opcode
+   * @throws {Error} 구현되지 않은 opcode인 경우
+   */
+  public static validateImplementedOpcode(opcode: string): void {
+    const implementedOpcodes: ArithmeticOperator[] = [
+      'ADD',
+      'MUL',
+      'SUB',
+      'DIV',
+      'SDIV',
+      'MOD',
+      'SMOD',
+      'ADDMOD',
+      'MULMOD',
+      'EXP',
+      'SIGNEXTEND',
+      'LT',
+      'GT',
+      'SLT',
+      'SGT',
+      'EQ',
+      'ISZERO',
+      'AND',
+      'OR',
+      'XOR',
+      'NOT',
+      'BYTE',
+      'SHL',
+      'SHR',
+      'SAR',
+      'DecToBit',
+      'SubEXP',
+    ] as const
+
+    if (!implementedOpcodes.includes(opcode as ArithmeticOperator)) {
+      throw new Error(`Synthesizer: Opcode '${opcode}' is not implemented`)
     }
   }
 
@@ -75,8 +118,52 @@ export class SynthesizerValidator {
     if (value < 0n) {
       throw new Error('Negative values are not allowed')
     }
-    if (value > 2n**256n -1n) {
+    if (value > 2n ** 256n - 1n) {
       throw new Error('The value exceeds Ethereum word size')
+    }
+  }
+}
+
+export class SynthesizerInstructionValidator {
+  // static validateInput(op: string, expected?: bigint, actual?: bigint) {
+  //   if (expected === undefined) {
+  //     throw new SynthesizerOperationError(op, 'Must have an input value')
+  //   }
+  //   if (expected !== actual) {
+  //     throw new SynthesizerOperationError(op, 'Input data mismatch')
+  //   }
+  // }
+
+  // static validateOutput(op: string, stackPt: DataPt, stackValue: bigint) {
+  //   if (stackPt.value !== stackValue) {
+  //     throw new SynthesizerOperationError(op, 'Output data mismatch')
+  //   }
+  // }
+
+  constructor(private runState: RunState) {}
+
+  public validateArithInputs(inPts: DataPt[], ins: bigint[], op: string): void {
+    if (inPts.length !== ins.length) {
+      throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+    }
+
+    for (let i = 0; i < ins.length; i++) {
+      if (inPts[i].value !== ins[i]) {
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+      }
+    }
+  }
+
+  public validateArithOutput(outPt: DataPt, expectedValue: bigint, op: string): void {
+    if (outPt.value !== expectedValue) {
+      throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+    }
+  }
+
+  public validateKeccakData(offset: number, length: number, mutDataPt: DataPt): void {
+    const data = this.runState.memory.read(offset, length)
+    if (bytesToBigInt(data) !== mutDataPt.value) {
+      throw new Error('Synthesizer: KECCAK256: Data loaded to be hashed mismatch')
     }
   }
 }
