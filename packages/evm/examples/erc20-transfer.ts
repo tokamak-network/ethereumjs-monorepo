@@ -1,6 +1,7 @@
 // DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
 // import { Account } from '@ethereumjs/account'
 import { Account, Address, hexToBytes } from '@ethereumjs/util'
+import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../src/constructors.js'
 import { mapToStr } from '../src/tokamak/utils/index.js'
@@ -18,20 +19,23 @@ const main = async () => {
   const sender = new Address(hexToBytes('0x2000000000000000000000000000000000000000'))
   const recipient = new Address(hexToBytes('0x3000000000000000000000000000000000000000'))
 
-  //   // Deploy contract code
-  //   await evm.stateManager.putCode(contractAddr, contractCode)
+  // 컨트랙트 계정 생성
+  await evm.stateManager.putAccount(contractAddr, new Account())
 
-  //   // Set initial balances - using a larger value for testing
-  //   await evm.stateManager.putStorage(
-  //     contractAddr,
-  //     hexToBytes('0x0000000000000000000000000000000000000000000000000000000000000004'), // total supply slot
-  //     new Uint8Array([100]), // initial supply
-  //   )
+  // 컨트랙트 코드 배포
+  await evm.stateManager.putCode(contractAddr, contractCode)
 
+  // 잔액 설정
+  const balanceSlot = '0x5'
+  const senderBalanceSlot = keccak256(
+    hexToBytes(
+      '0x' + sender.toString().slice(2).padStart(64, '0') + balanceSlot.slice(2).padStart(64, '0'),
+    ),
+  )
   await evm.stateManager.putStorage(
     contractAddr,
-    hexToBytes('0x' + '5'.padStart(64, '0')), // balances mapping slot
-    new Uint8Array([100]), // sender's balance
+    senderBalanceSlot,
+    hexToBytes('0x' + '100'.padStart(64, '0')),
   )
 
   // Now run the transfer
