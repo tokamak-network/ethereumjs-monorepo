@@ -53,11 +53,13 @@ export interface CreateDataPointParams {
   topics?: bigint[]
   sourceSize: number
   value: bigint
+  identifier?: string
 }
 export type DataPt = CreateDataPointParams & { valueHex: string }
 
 export type PlacementEntry = {
   name: string
+  id?: number
   inPts: DataPt[]
   outPts: DataPt[]
 }
