@@ -1,9 +1,11 @@
 import { bigIntToBytes, bytesToHex, setLengthLeft } from '@ethereumjs/util'
-import { DataPt, PlacementEntry, Placements } from '../types/synthesizer.js'
 import fs from 'fs'
 import path from 'path'
-import { subcircuits } from '../constant/subcircuitInfo.js'
+
+import { subcircuits } from '../constant/index.js'
 import { LOAD_PLACEMENT_INDEX } from '../constant/placement.js'
+
+import type { DataPt, PlacementEntry, Placements } from '../types/index.js'
 
 const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: number): void => {
   const indHigh = index * 2
@@ -71,7 +73,7 @@ export function refactoryPlacement(placements: Placements): Placements {
   const dietLoadPlacment = removeUnusedLoadWires(placements)
   const outPlacements: Placements = new Map()
   for (const key of placements.keys()) {
-    const placement = key == LOAD_PLACEMENT_INDEX ? dietLoadPlacment : placements.get(key)
+    const placement = key === LOAD_PLACEMENT_INDEX ? dietLoadPlacment : placements.get(key)
     const newInPts: DataPt[] = []
     const newOutPts: DataPt[] = []
     const inPts = placement!.inPts
