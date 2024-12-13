@@ -1,10 +1,12 @@
-// DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
-// import { Account } from '@ethereumjs/account'
+/**
+ * Run this file with:
+ * DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
+ */
+
 import { Account, Address, hexToBytes } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
-import { createEVM } from '../src/constructors.js'
-import { mapToStr } from '../src/tokamak/utils/index.js'
+import { createEVM } from '../../../src/constructors.js'
 
 // ERC20 contract bytecode
 const contractCode = hexToBytes(
