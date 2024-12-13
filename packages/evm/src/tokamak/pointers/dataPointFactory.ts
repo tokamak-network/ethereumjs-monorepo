@@ -7,7 +7,7 @@ export class DataPointFactory {
     SynthesizerValidator.validateValue(params.value)
     
     return {
-      ...params, 
+      ...params,
       valueHex: params.value.toString(16),
     }
   }
