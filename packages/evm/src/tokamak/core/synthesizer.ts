@@ -21,7 +21,7 @@ import {
   RETURN_PLACEMENT_INDEX,
   subcircuits,
 } from '../constant/index.js'
-import { type ArithmeticOperator, OPERATION_MAPPING } from '../operations/index.js'
+import { OPERATION_MAPPING } from '../operations/index.js'
 import { DataPointFactory, simulateMemoryPt } from '../pointers/index.js'
 import { addPlacement } from '../utils/utils.js'
 import {
@@ -32,10 +32,10 @@ import {
 
 import type { RunState } from '../../interpreter.js'
 import type { DataAliasInfoEntry, DataAliasInfos, MemoryPts } from '../pointers/index.js'
-import type { Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
+import type { ArithmeticOperator, Auxin, CreateDataPointParams, DataPt, Placements } from '../types/index.js'
 
 export const synthesizerArith = (
-  op: ArithmeticOperator | 'KECCAK256',
+  op: ArithmeticOperator,
   ins: bigint[],
   out: bigint,
   runState: RunState,
@@ -62,18 +62,6 @@ export const synthesizerArith = (
     case 'EXP':
       outPts = [runState.synthesizer.placeEXP(inPts)]
       break
-    case 'KECCAK256': {
-      const offsetNum = Number(ins[0])
-      const lengthNum = Number(ins[1])
-      const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, lengthNum)
-      const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
-      const data = runState.memory.read(offsetNum, lengthNum)
-      if (bytesToBigInt(data) !== mutDataPt.value) {
-        throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
-      }
-      outPts = [runState.synthesizer.loadKeccak([mutDataPt], out)]
-      break
-    }
     default:
       outPts = runState.synthesizer.placeArith(op, inPts)
       break
