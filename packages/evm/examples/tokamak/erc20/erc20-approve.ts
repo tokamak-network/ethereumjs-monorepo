@@ -53,26 +53,26 @@ const main = async () => {
     ),
   })
 
-  // 결과 확인
-  console.log('\n=== Storage State ===')
-  // allowance mapping의 slot: keccak256(spender + keccak256(owner + 0x6))
-  const allowanceSlot = '0x6'
-  const allowanceKey = keccak256(
-    hexToBytes(
-      '0x' +
-        spender.toString().slice(2).padStart(64, '0') +
-        keccak256(
-          hexToBytes(
-            '0x' +
-              owner.toString().slice(2).padStart(64, '0') +
-              allowanceSlot.slice(2).padStart(64, '0'),
-          ),
-        ).toString(),
-    ),
-  )
+  //   // 결과 확인
+  //   console.log('\n=== Storage State ===')
+  //   // allowance mapping의 slot: keccak256(spender + keccak256(owner + 0x6))
+  //   const allowanceSlot = '0x6'
+  //   const allowanceKey = keccak256(
+  //     hexToBytes(
+  //       '0x' +
+  //         spender.toString().slice(2).padStart(64, '0') +
+  //         keccak256(
+  //           hexToBytes(
+  //             '0x' +
+  //               owner.toString().slice(2).padStart(64, '0') +
+  //               allowanceSlot.slice(2).padStart(64, '0'),
+  //           ),
+  //         ),
+  //     ),
+  //   )
 
-  const allowanceValue = await evm.stateManager.getStorage(contractAddr, allowanceKey)
-  console.log('Allowance:', BigInt('0x' + allowanceValue.toString()))
+  //   const allowanceValue = await evm.stateManager.getStorage(contractAddr, allowanceKey)
+  //   console.log('Allowance:', BigInt('0x' + allowanceValue.toString()))
 
   console.log('\n=== Circuit Placements ===')
   console.log(JSON.stringify(res.runState?.synthesizer.placements, null, 2))
