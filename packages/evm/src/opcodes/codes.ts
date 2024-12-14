@@ -1,6 +1,6 @@
 import { Hardfork } from '@ethereumjs/common'
 
-import { subcircuits } from '../tokamak/constant/subcircuitInfo.js'
+import { subcircuits } from '../../resources/subcircuitInfo.js'
 
 import { handlers } from './functions.js'
 import { dynamicGasHandlers } from './gas.js'

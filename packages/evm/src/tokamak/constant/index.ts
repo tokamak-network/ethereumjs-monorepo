@@ -1,2 +1,2 @@
 export * from './placement.js'
-export * from './subcircuitInfo.js'
+export * from '../../../resources/subcircuitInfo.js'

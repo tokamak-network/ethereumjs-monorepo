@@ -13,8 +13,10 @@ import { createAddressFromStackBigInt, getDataSlice } from '../../opcodes/util.j
 import {
   DEFAULT_SOURCE_SIZE,
   INITIAL_PLACEMENT_INDEX,
-  KECCAK_PLACEMENT,
-  KECCAK_PLACEMENT_INDEX,
+  KECCAK_IN_PLACEMENT,
+  KECCAK_IN_PLACEMENT_INDEX,
+  KECCAK_OUT_PLACEMENT,
+  KECCAK_OUT_PLACEMENT_INDEX,
   LOAD_PLACEMENT,
   LOAD_PLACEMENT_INDEX,
   RETURN_PLACEMENT,
@@ -46,11 +48,8 @@ export const synthesizerArith = (
   out: bigint,
   runState: RunState,
 ): void => {
-  const inPts = runState.stackPt.popN(runState.synthesizer.subcircuitInfoByName.get(op)!.NInWires)
+  const inPts = runState.stackPt.popN(ins.length)
 
-  if (inPts.length !== ins.length) {
-    throw new Error(`Synthesizer: ${op}: Input data mismatch`)
-  }
   for (let i = 0; i < ins.length; i++) {
     if (inPts[i].value !== ins[i]) {
       const stackValue = BigInt(inPts[i].value)
@@ -281,7 +280,8 @@ export class Synthesizer {
     this.placements = new Map()
     this.placements.set(LOAD_PLACEMENT_INDEX, LOAD_PLACEMENT)
     this.placements.set(RETURN_PLACEMENT_INDEX, RETURN_PLACEMENT)
-    this.placements.set(KECCAK_PLACEMENT_INDEX, KECCAK_PLACEMENT)
+    this.placements.set(KECCAK_IN_PLACEMENT_INDEX, KECCAK_IN_PLACEMENT)
+    this.placements.set(KECCAK_OUT_PLACEMENT_INDEX, KECCAK_OUT_PLACEMENT)
 
     this.auxin = new Map()
     this.envInf = new Map()
@@ -393,9 +393,9 @@ export class Synthesizer {
       length: size,
     }
     const key = JSON.stringify(whereItFrom)
-    if (this.envInf.has(key)) {
-      return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.envInf.get(key)!.wireIndex]
-    }
+    // if (this.envInf.has(key)) {
+    //   return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.envInf.get(key)!.wireIndex]
+    // }
     const sourceSize = size ?? DEFAULT_SOURCE_SIZE
     const inPtRaw: CreateDataPointParams = {
       ...whereItFrom,
@@ -501,12 +501,12 @@ export class Synthesizer {
     if (_outValue !== outValue) {
       throw new Error(`Synthesizer: loadKeccak: The Keccak hash may be customized`)
     }
-    const inWireIndex = this.placements.get(KECCAK_PLACEMENT_INDEX)!.inPts.length
+    const inWireIndex = this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.inPts.length
     const pairedInputWireIndices = Array.from({ length: nChunks }, (_, i) => inWireIndex + i)
-    const outWireIndex = this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts.length
+    const outWireIndex = this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.outPts.length
     // 출력 데이터 포인트 생성
     const outPtRaw: CreateDataPointParams = {
-      source: KECCAK_PLACEMENT_INDEX,
+      source: KECCAK_OUT_PLACEMENT_INDEX,
       wireIndex: outWireIndex,
       pairedInputWireIndices,
       value: outValue,
@@ -516,11 +516,13 @@ export class Synthesizer {
 
     // keccakBuffer 서브서킷에 입출력 추가
     for (let i = 0; i < nChunks; i++) {
-      this.placements.get(KECCAK_PLACEMENT_INDEX)!.inPts[pairedInputWireIndices[i]] = inPts[i]
+      this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.inPts[pairedInputWireIndices[i]] = inPts[i]
+      this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.outPts[pairedInputWireIndices[i]] = inPts[i]
     }
-    this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts.push(outPt)
+    this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.inPts.push(outPt)
+    this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.outPts.push(outPt)
 
-    return this.placements.get(KECCAK_PLACEMENT_INDEX)!.outPts[outWireIndex]
+    return this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.outPts[outWireIndex]
   }
 
   /**

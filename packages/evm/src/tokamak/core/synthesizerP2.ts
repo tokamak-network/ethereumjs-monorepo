@@ -65,7 +65,10 @@ const removeUnusedLoadWires = (placements: Placements): PlacementEntry => {
   return outLoadPlacement
 }
 
-export function refactoryPlacement(placements: Placements): Placements {
+export const synthesizerPhase2 = (placements: Placements): void =>
+  outputPlacementInputs(refactoryPlacement(placements))
+
+function refactoryPlacement(placements: Placements): Placements {
   const subcircuitIdByName = new Map()
   for (const subcircuit of subcircuits) {
     subcircuitIdByName.set(subcircuit.name, subcircuit.id)
@@ -94,7 +97,7 @@ export function refactoryPlacement(placements: Placements): Placements {
   return outPlacements
 }
 
-export function generatePlacementJSON(placements: Placements): void {
+function outputPlacementInputs(placements: Placements): void {
   const result = Array.from(placements.entries()).map(([key, entry]) => ({
     placementIndex: key,
     subcircuitId: entry.id,
@@ -103,11 +106,14 @@ export function generatePlacementJSON(placements: Placements): void {
     outValues: entry.outPts.map((pt) => pt.valueHex),
   }))
 
-  const jsonData = JSON.stringify(result, null, 2)
-  const filePath = '../resources/connectingWireValues.json'
+  const tsContent = `export const placementInputs = \n ${JSON.stringify(result, null, 2)}`
+  const filePath = '../resources/placementInputs.ts'
   const dir = path.dirname(filePath)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
-  fs.writeFileSync(filePath, jsonData, 'utf-8')
+  fs.writeFileSync(filePath, tsContent, 'utf-8')
+  console.log(
+    `Input and output wire assingments of the placements are generated in "placementInputs.ts".`,
+  )
 }
