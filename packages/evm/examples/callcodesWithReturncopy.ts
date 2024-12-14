@@ -8,6 +8,7 @@ import { NobleBN254 } from '../src/precompiles/index.js'
 import { EVMMockBlockchain } from '../src/types.js'
 
 import type { EVMOpts } from '../src/index.js'
+
 import { mapToStr } from '../src/tokamak/utils/index.js'
 import { synthesizerPhase2 } from '../src/tokamak/core/synthesizerP2.js'
 

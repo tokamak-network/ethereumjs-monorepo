@@ -2,7 +2,7 @@ import { bigIntToBytes, bytesToHex, setLengthLeft } from '@ethereumjs/util'
 import fs from 'fs'
 import path from 'path'
 
-import { subcircuits } from '../constant/index.js'
+import { subcircuits } from '../resources/index.js'
 import { LOAD_PLACEMENT_INDEX } from '../constant/placement.js'
 
 import type { DataPt, PlacementEntry, Placements } from '../types/index.js'

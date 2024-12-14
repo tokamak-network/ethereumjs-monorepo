@@ -21,8 +21,8 @@ import {
   LOAD_PLACEMENT_INDEX,
   RETURN_PLACEMENT,
   RETURN_PLACEMENT_INDEX,
-  subcircuits,
 } from '../constant/index.js'
+import { subcircuits } from '../resources/index.js'
 import { OPERATION_MAPPING } from '../operations/index.js'
 import { DataPointFactory, simulateMemoryPt } from '../pointers/index.js'
 import { addPlacement } from '../utils/utils.js'
