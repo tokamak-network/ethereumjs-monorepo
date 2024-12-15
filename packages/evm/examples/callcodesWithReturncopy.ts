@@ -51,7 +51,7 @@ const main = async () => {
   const stringPlacements = mapToStr(res.runState!.synthesizer.placements)
   console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
 
-  synthesizerPhase2(res.runState!.synthesizer.placements)
+  await synthesizerPhase2(res.runState!.synthesizer.placements)
 }
 
 void main()
