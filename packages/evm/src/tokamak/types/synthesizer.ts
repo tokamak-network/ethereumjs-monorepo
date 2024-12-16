@@ -66,3 +66,13 @@ export type PlacementEntry = {
 
 export type Placements = Map<number, PlacementEntry>
 export type Auxin = Map<bigint, number>
+
+export type PlacementInstanceEntry = {
+  placementIndex: number
+  subcircuitId: number
+  instructionName: string
+  inValues: string[]
+  outValues: string[]
+}
+
+export type PlacementInstances = PlacementInstanceEntry[]

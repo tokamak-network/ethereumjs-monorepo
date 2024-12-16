@@ -2,19 +2,20 @@ import { bigIntToBytes, bytesToHex, setLengthLeft } from '@ethereumjs/util'
 import fs from 'fs'
 import path from 'path'
 
-import { subcircuits } from '../constant/index.js'
-import { LOAD_PLACEMENT_INDEX } from '../constant/placement.js'
+import { subcircuits as subcircuitInfos } from '../resources/index.js'
+import { KECCAK_OUT_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/placement.js'
 
-import type { DataPt, PlacementEntry, Placements } from '../types/index.js'
+import type { DataPt, PlacementEntry, PlacementInstances, Placements } from '../types/index.js'
+import { checkInstances } from '../validation/wireAssignments.js'
 
 const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: number): void => {
-  const indHigh = index * 2
-  const indLow = indHigh + 1
-  newDataPts[indHigh] = { ...prevDataPt }
+  const indLow = index * 2
+  const indHigh = indLow + 1
   newDataPts[indLow] = { ...prevDataPt }
+  newDataPts[indHigh] = { ...prevDataPt }
   if (prevDataPt.wireIndex !== undefined) {
-    newDataPts[indHigh].wireIndex = prevDataPt.wireIndex * 2
-    newDataPts[indLow].wireIndex = prevDataPt.wireIndex * 2 + 1
+    newDataPts[indLow].wireIndex = prevDataPt.wireIndex * 2
+    newDataPts[indHigh].wireIndex = prevDataPt.wireIndex * 2 + 1
   }
   if (prevDataPt.pairedInputWireIndices !== undefined) {
     newDataPts[indHigh].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(
@@ -65,10 +66,13 @@ const removeUnusedLoadWires = (placements: Placements): PlacementEntry => {
   return outLoadPlacement
 }
 
-export function refactoryPlacement(placements: Placements): Placements {
+export const synthesizerPhase2 = async (placements: Placements): Promise<void> =>
+  await outputPlacementInstance(refactoryPlacement(placements))
+
+function refactoryPlacement(placements: Placements): Placements {
   const subcircuitIdByName = new Map()
-  for (const subcircuit of subcircuits) {
-    subcircuitIdByName.set(subcircuit.name, subcircuit.id)
+  for (const subcircuitInfo of subcircuitInfos) {
+    subcircuitIdByName.set(subcircuitInfo.name, subcircuitInfo.id)
   }
   const dietLoadPlacment = removeUnusedLoadWires(placements)
   const outPlacements: Placements = new Map()
@@ -94,20 +98,39 @@ export function refactoryPlacement(placements: Placements): Placements {
   return outPlacements
 }
 
-export function generatePlacementJSON(placements: Placements): void {
-  const result = Array.from(placements.entries()).map(([key, entry]) => ({
+async function outputPlacementInstance(placements: Placements): Promise<void> {
+  const result: PlacementInstances = Array.from(placements.entries()).map(([key, entry]) => ({
     placementIndex: key,
-    subcircuitId: entry.id,
+    subcircuitId: entry.id!,
     instructionName: entry.name,
     inValues: entry.inPts.map((pt) => pt.valueHex),
     outValues: entry.outPts.map((pt) => pt.valueHex),
   }))
+  for (let i = LOAD_PLACEMENT_INDEX; i <= KECCAK_OUT_PLACEMENT_INDEX; i++) {
+    let ins = result[i].inValues
+    let outs = result[i].outValues
+    const expectedInsLen = subcircuitInfos[result[i].subcircuitId].In_idx[1]
+    const expectedOutsLen = subcircuitInfos[result[i].subcircuitId].Out_idx[1]
+    if (expectedInsLen > ins.length) {
+      const filledIns = ins.concat(Array(expectedInsLen - ins.length).fill('0x00'))
+      result[i].inValues = filledIns
+    }
+    if (expectedOutsLen > outs.length) {
+      const filledOuts = outs.concat(Array(expectedOutsLen - outs.length).fill('0x00'))
+      result[i].outValues = filledOuts
+    }
+  }
 
-  const jsonData = JSON.stringify(result, null, 2)
-  const filePath = '../resources/connectingWireValues.json'
+  await checkInstances(result)
+
+  const tsContent = `export const placementInputs = \n ${JSON.stringify(result, null, 2)}`
+  const filePath = '../resources/placementInputs.ts'
   const dir = path.dirname(filePath)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
-  fs.writeFileSync(filePath, jsonData, 'utf-8')
+  fs.writeFileSync(filePath, tsContent, 'utf-8')
+  console.log(
+    `Input and output wire assingments of the placements are generated in "placementInputs.ts".`,
+  )
 }

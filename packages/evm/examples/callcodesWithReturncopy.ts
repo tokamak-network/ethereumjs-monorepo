@@ -5,10 +5,12 @@ import { Account, createAddressFromPrivateKey, hexToBytes } from '@ethereumjs/ut
 
 import { createEVM } from '../src/constructors.js'
 import { NobleBN254 } from '../src/precompiles/index.js'
-import { mapToStr } from '../src/tokamak/utils/index.js'
 import { EVMMockBlockchain } from '../src/types.js'
 
 import type { EVMOpts } from '../src/index.js'
+
+import { mapToStr } from '../src/tokamak/utils/index.js'
+import { synthesizerPhase2 } from '../src/tokamak/core/synthesizerP2.js'
 
 const main = async () => {
   const opts = {} as EVMOpts
@@ -48,6 +50,8 @@ const main = async () => {
   })
   const stringPlacements = mapToStr(res.runState!.synthesizer.placements)
   console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+
+  await synthesizerPhase2(res.runState!.synthesizer.placements)
 }
 
 void main()

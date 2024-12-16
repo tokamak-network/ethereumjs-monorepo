@@ -8,7 +8,6 @@ import { NobleBN254 } from '../src/precompiles/index.js'
 import { EVMMockBlockchain } from '../src/types.js'
 
 import type { EVMOpts } from '../src/index.js'
-import { mapToStr } from '../src/tokamak/utils/index.js'
 
 const main = async () => {
   const opts = {} as EVMOpts
@@ -46,8 +45,7 @@ const main = async () => {
       '0x60103560801c6010600060103760005163c0cac01a60225263b01dface601e52611eaf601c52026020536020602060206020737e5f4552091a69125d5dfcb7b8c2659029395bdf611388fa60205180807f000000000000000000000000000000000000000000000000ffffffffffffffff16917f00000000000000000000000000000000ffffffffffffffff00000000000000001660401c907f0000000000000000ffffffffffffffff000000000000000000000000000000001660801c611eaf1460005363b01dface1460015363c0cac01a1460025300',
     ),
   })
-  const stringPlacements = mapToStr(res.runState!.synthesizer.placements)
-  console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`)
+  console.log(res.executionGasUsed) // 3n
 }
 
 void main()

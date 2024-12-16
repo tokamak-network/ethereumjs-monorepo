@@ -46,3 +46,16 @@ export const mapToStr = (map: Map<any, any>) => {
 export function arrToStr(key: string, value: any) {
   return typeof value === 'bigint' ? value.toString() : value
 }
+
+export function split256BitInteger(value: bigint): bigint[] {
+  // Calculate the lower and upper parts
+  const lower = (value & ((1n << 128n) - 1n)) % 2n ** 128n
+  const upper = (value >> 128n) % 2n ** 128n
+
+  return [lower, upper]
+}
+
+export const merge128BitIntegers = (low: bigint, high: bigint): bigint => {
+  // assume the inputs are in 128bit (Todo: check the input validity)
+  return (high << 128n) + low
+}
