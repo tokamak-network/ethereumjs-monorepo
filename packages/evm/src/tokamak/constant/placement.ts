@@ -5,7 +5,7 @@ export const KECCAK_OUT_PLACEMENT_INDEX = 3
 export const INITIAL_PLACEMENT_INDEX = KECCAK_OUT_PLACEMENT_INDEX + 1
 export const DEFAULT_SOURCE_SIZE = 32
 export const LOAD_PLACEMENT = {
-  name: 'Load',
+  name: 'InterfaceBuffer',
   inPts: [],
   outPts: [],
 }
@@ -20,7 +20,7 @@ export const KECCAK_OUT_PLACEMENT = {
   outPts: [],
 }
 export const RETURN_PLACEMENT = {
-  name: 'ReturnBuffer',
+  name: 'InterfaceBuffer',
   inPts: [],
   outPts: [],
 }

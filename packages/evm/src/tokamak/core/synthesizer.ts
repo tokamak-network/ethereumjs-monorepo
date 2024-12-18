@@ -40,6 +40,8 @@ import type {
   CreateDataPointParams,
   DataPt,
   Placements,
+  SubcircuitInfoByName,
+  SubcircuitInfoByNameEntry,
 } from '../types/index.js'
 
 export const synthesizerArith = (
@@ -245,17 +247,6 @@ export async function synthesizerEnvInf(
   }
 }
 
-// 기본값(2)과 다른 입력 개수를 가진 연산들만 정의
-type SubcircuitInfoByNameEntry = {
-  id: number
-  NWires: number
-  inWireIndex: number
-  NInWires: number
-  outWireIndex: number
-  NOutWires: number
-}
-type SubcircuitInfoByName = Map<string, SubcircuitInfoByNameEntry>
-
 /**
  * Synthesizer 클래스는 서브서킷과 관련된 데이터를 관리합니다.
  *
@@ -278,10 +269,25 @@ export class Synthesizer {
 
   constructor() {
     this.placements = new Map()
-    this.placements.set(LOAD_PLACEMENT_INDEX, LOAD_PLACEMENT)
-    this.placements.set(RETURN_PLACEMENT_INDEX, RETURN_PLACEMENT)
-    this.placements.set(KECCAK_IN_PLACEMENT_INDEX, KECCAK_IN_PLACEMENT)
-    this.placements.set(KECCAK_OUT_PLACEMENT_INDEX, KECCAK_OUT_PLACEMENT)
+    if (
+      subcircuits[1].name === LOAD_PLACEMENT.name &&
+      subcircuits[1].name === RETURN_PLACEMENT.name
+    ) {
+      this.placements.set(LOAD_PLACEMENT_INDEX, LOAD_PLACEMENT)
+      this.placements.set(RETURN_PLACEMENT_INDEX, RETURN_PLACEMENT)
+    } else {
+      throw new Error(`Synthesizer: Placement: Initialization faield.`)
+    }
+    if (subcircuits[subcircuits.length - 1].name === KECCAK_IN_PLACEMENT.name) {
+      this.placements.set(KECCAK_IN_PLACEMENT_INDEX, KECCAK_IN_PLACEMENT)
+    } else {
+      throw new Error(`Synthesizer: Placement: Initialization faield.`)
+    }
+    if (subcircuits[0].name === KECCAK_OUT_PLACEMENT.name) {
+      this.placements.set(KECCAK_OUT_PLACEMENT_INDEX, KECCAK_OUT_PLACEMENT)
+    } else {
+      throw new Error(`Synthesizer: Placement: Initialization faield.`)
+    }
 
     this.auxin = new Map()
     this.envInf = new Map()
