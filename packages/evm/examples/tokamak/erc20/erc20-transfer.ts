@@ -7,7 +7,7 @@ import { Account, Address, hexToBytes } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../../src/constructors.js'
-import { synthesizerPhase2 } from '../../../src/tokamak/core/synthesizerP2.js'
+import { finalize } from '../../../src/tokamak/core/finalize.js'
 
 // ERC20 contract bytecode
 const contractCode = hexToBytes(
@@ -71,7 +71,7 @@ const main = async () => {
   console.log('\n=== Circuit Placements ===')
   console.log(JSON.stringify(res.runState?.synthesizer.placements, null, 2))
 
-  await synthesizerPhase2(res.runState!.synthesizer.placements)
+  const permutation = await finalize(res.runState!.synthesizer.placements)
 }
 
 void main()
