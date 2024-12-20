@@ -5,5 +5,6 @@ export type SubcircuitInfoByNameEntry = {
   NInWires: number
   outWireIndex: number
   NOutWires: number
+  flattenMap?: number[]
 }
 export type SubcircuitInfoByName = Map<string, SubcircuitInfoByNameEntry>
