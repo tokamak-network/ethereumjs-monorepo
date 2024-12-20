@@ -2,7 +2,7 @@ export const placementInstance = [
   {
     placementIndex: 0,
     subcircuitId: 1,
-    instructionName: 'InterfaceBuffer',
+    instructionName: 'InterfaceBufferIn',
     inValues: [
       '0x00000000000000000000000000000080',
       '0x00000000000000000000000000000000',
@@ -522,8 +522,8 @@ export const placementInstance = [
   },
   {
     placementIndex: 1,
-    subcircuitId: 1,
-    instructionName: 'InterfaceBuffer',
+    subcircuitId: 28,
+    instructionName: 'InterfaceBufferOut',
     inValues: [
       '0x0000000000000000000000000000009c',
       '0x00000000000000000000000000000000',
@@ -1043,7 +1043,7 @@ export const placementInstance = [
   },
   {
     placementIndex: 2,
-    subcircuitId: 28,
+    subcircuitId: 29,
     instructionName: 'KeccakBufferIn',
     inValues: [
       '0x00000000000000000000000000000000',

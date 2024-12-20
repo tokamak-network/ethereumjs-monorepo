@@ -271,7 +271,7 @@ export class Synthesizer {
     this.placements = new Map()
     if (
       subcircuits[1].name === LOAD_PLACEMENT.name &&
-      subcircuits[1].name === RETURN_PLACEMENT.name
+      subcircuits[subcircuits.length - 2].name === RETURN_PLACEMENT.name
     ) {
       this.placements.set(LOAD_PLACEMENT_INDEX, LOAD_PLACEMENT)
       this.placements.set(RETURN_PLACEMENT_INDEX, RETURN_PLACEMENT)

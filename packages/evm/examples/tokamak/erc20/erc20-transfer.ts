@@ -71,7 +71,7 @@ const main = async () => {
   console.log('\n=== Circuit Placements ===')
   console.log(JSON.stringify(res.runState?.synthesizer.placements, null, 2))
 
-  const permutation = await finalize(res.runState!.synthesizer.placements)
+  const permutation = await finalize(res.runState!.synthesizer.placements, true)
 }
 
 void main()
