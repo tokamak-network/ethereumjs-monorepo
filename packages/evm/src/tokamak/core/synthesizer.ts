@@ -260,7 +260,7 @@ export class Synthesizer {
   public auxin: Auxin
   public envInf: Map<string, { value: bigint; wireIndex: number }>
   public blkInf: Map<string, { value: bigint; wireIndex: number }>
-  public storagePt: Map<bigint, DataPt>
+  public storagePt: Map<string, DataPt>
   public logPt: { topics: bigint[]; valPt: DataPt }[]
   public TStoragePt: Map<string, Map<bigint, DataPt>>
   protected placementIndex: number
@@ -419,31 +419,32 @@ export class Synthesizer {
   }
 
   public loadStorage(codeAddress: string, key: bigint, value: bigint): DataPt {
+    const keyString = JSON.stringify({ address: codeAddress, key: Number(key) })
     let outPt: DataPt
-    if (this.storagePt.has(key)) {
-      outPt = this.storagePt.get(key)!
+    if (this.storagePt.has(keyString)) {
+      outPt = this.storagePt.get(keyString)!
     } else {
       const inPtRaw: CreateDataPointParams = {
-        source: `code: ${codeAddress}`,
+        source: `storage: ${codeAddress}`,
         key,
         value,
         sourceSize: DEFAULT_SOURCE_SIZE,
       }
       const inPt = DataPointFactory.create(inPtRaw)
-      this.storagePt.set(key, inPt)
+      this.storagePt.set(keyString, inPt)
       outPt = this._addWireToLoadPlacement(inPt)
     }
     return outPt
   }
 
-  public storeStorage(key: bigint, inPt: DataPt): void {
-    this.storagePt.set(key, inPt)
+  public storeStorage(codeAddress: string, key: bigint, inPt: DataPt): void {
+    const keyString = JSON.stringify({ address: codeAddress, key: Number(key) })
+    this.storagePt.set(keyString, inPt)
     const outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
     // 출력 데이터 포인트 생성
     const outPtRaw: CreateDataPointParams = {
-      dest: 'Storage',
+      dest: `storage: ${codeAddress}`,
       key,
-      wireIndex: outWireIndex,
       value: inPt.value,
       sourceSize: DEFAULT_SOURCE_SIZE,
     }

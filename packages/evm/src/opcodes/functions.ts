@@ -1306,7 +1306,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (key !== keyPt.value || val !== valPt.value) {
         throw new Error(`Synthesizer: 'SSTORE': Input data mismatch`)
       }
-      runState.synthesizer.storeStorage(key, valPt)
+      runState.synthesizer.storeStorage(runState.env.address.toString(), key, valPt)
     },
   ],
   // 0x56: JUMP
