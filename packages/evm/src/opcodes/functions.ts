@@ -1577,18 +1577,18 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       const [memOffsetPt, memLengthPt] = runState.stackPt.popN(2)
-      const topicsPts = runState.stackPt.popN(topicsCount)
+      const topicPts = runState.stackPt.popN(topicsCount)
       if (memOffsetPt.value !== memOffset || memLengthPt.value !== memLength) {
         throw new Error(`Synthesizer: 'LOG': Input data mismatch`)
       }
       for (let i = 0; i < topicsCount; i++) {
-        if (topicsPts[i].value !== topics[i]) {
+        if (topicPts[i].value !== topics[i]) {
           throw new Error(`Synthesizer: 'LOG': Input data mismatch`)
         }
       }
       const dataAlias = runState.memoryPt.getDataAlias(Number(memOffset), Number(memLength))
       const dataPt = runState.synthesizer.placeMemoryToStack(dataAlias)
-      runState.synthesizer.storeLog(topics, dataPt)
+      runState.synthesizer.storeLog(dataPt, topicPts)
     },
   ],
   // 0xd0: DATALOAD

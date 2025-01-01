@@ -261,7 +261,7 @@ export class Synthesizer {
   public envInf: Map<string, { value: bigint; wireIndex: number }>
   public blkInf: Map<string, { value: bigint; wireIndex: number }>
   public storagePt: Map<string, DataPt>
-  public logPt: { topics: bigint[]; valPt: DataPt }[]
+  public logPt: { topicPts: DataPt[]; valPt: DataPt }[]
   public TStoragePt: Map<string, Map<bigint, DataPt>>
   protected placementIndex: number
   private subcircuitNames
@@ -454,21 +454,36 @@ export class Synthesizer {
     this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(outPt)
   }
 
-  public storeLog(topics: bigint[], inPt: DataPt): void {
-    this.logPt.push({ topics, valPt: inPt })
-    const outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
-    // 출력 데이터 포인트 생성
+  public storeLog(valPt: DataPt, topicPts: DataPt[]): void {
+    this.logPt.push({ valPt, topicPts })
+    let outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
+    const inWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.length
+    // 값 출력 데이터 포인트 생성
     const outPtRaw: CreateDataPointParams = {
       dest: 'LOG',
-      topics,
-      wireIndex: outWireIndex,
-      value: inPt.value,
+      pairedInputWireIndices: [inWireIndex],
+      wireIndex: outWireIndex++,
+      value: valPt.value,
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
-    const outPt = DataPointFactory.create(outPtRaw)
+    const valOutPt = DataPointFactory.create(outPtRaw)
     // 입출력 데이터 포인터 쌍을 ReturnBuffer의 새로운 입출력 와이어 쌍으로 추가
-    this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(inPt)
-    this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(outPt)
+    this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(valPt)
+    this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(valOutPt)
+
+    // Topic 출력 데이터 포인트 생성
+    for (const topicPt of topicPts) {
+      const outPtRaw: CreateDataPointParams = {
+        dest: 'LOG',
+        pairedInputWireIndices: [inWireIndex],
+        wireIndex: outWireIndex++,
+        value: topicPt.value,
+        sourceSize: DEFAULT_SOURCE_SIZE,
+      }
+      const topicOutPt = DataPointFactory.create(outPtRaw)
+      this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(topicPt)
+      this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(topicOutPt)
+    }
   }
 
   public loadBlkInf(blkNumber: bigint, type: string, value: bigint): DataPt {
